@@ -1,0 +1,1541 @@
+农 业 机 械 学 报
+
+2021年5月
+
+第 52 卷 第 5 期
+
+doi： 10． 6041 / j． issn． 1000-1298． 2021． 05． 034
+
+基于高光谱成像的油茶籽含油率检测方法
+胡逸磊
+
+周宏平
+
+姜洪喆
+
+许林云
+
+王
+
+影
+
+（ 南京林业大学机械电子工程学院，南京 210037）
+摘要： 为了快速准确地检测油茶籽含油率、解决传统检测手段费时费力等问题，提出了一种基于高光谱成像技术的
+油茶籽含油率检测方法。应用光谱集Ⅰ（ 400 ～ 1 000 nm） 和光谱集Ⅱ（ 900 ～ 1 700 nm） 两组高光谱成像系统采集油
+茶籽的漫反射高光谱图像，并结合化学计量学方法建立油茶籽含油率的回归预测模型。结果显示，在不经预处理
+2
+
+的情况下，两组光谱集数据建立的偏最小二乘回归模型精度最高： 光谱集Ⅰ的预测集决定系数 Ｒ p 为 0. 681，均方根
+2
+
+误差（ ＲMSEP） 为 2. 89% ； 光谱集Ⅱ的 Ｒ p 为 0. 740，ＲMSEP 为 2. 92% 。通过对比 7 种不同的变量选择方法发现，两
+2
+
+组光谱集采用遗传算法筛选特征波长后建立的 PLSＲ 模型精度最高： 光谱集Ⅰ的 Ｒ p 为 0. 694，ＲMSEP 为 2. 82% ； 光
+2
+
+谱集Ⅱ的 Ｒ p 为 0. 779，ＲMSEP 为 2. 54% 。通过对比光谱集Ⅰ和光谱集Ⅱ的建模效果发现，使用光谱集Ⅱ建立的
+PLSＲ 模型的性能更好，因此 900 ～ 1 700 nm 波段比 400 ～ 1 000 nm 波段更适用于油茶籽含油率的检测，进一步验证
+了利用高光谱成像技术实现油茶籽含油率预测值分布可视化的可行性。
+关键词： 油茶籽； 含油率； 检测； 高光谱成像
++
+中图分类号： O657. 3； TS222 . 1
+
+文献标识码： A
+
+文章编号： 1000-1298（ 2021） 05-0308-08
+
+OSID：
+
+Detection Method of Oil Content of Camellia oleifera Seed
+Based on Hyperspectral Imaging
+ZHOU Hongping
+
+HU Yilei
+
+JIANG Hongzhe
+
+XU Linyun
+
+WANG Ying
+
+（ College of Mechanical and Electronic Engineering，Nanjing Forestry University，Nanjing 210037，China）
+
+Abstract： In order to quickly and accurately detect the oil content of Camellia oleifera seed and solve the
+time-consuming and laborious problems of traditional detection methods，a method for detecting the oil
+content of Camellia oleifera seed based on hyperspectral imagery （ HSI ） was proposed． Two sets of
+hyperspectral imaging systems，spectral set Ⅰ （ 400 ～ 1 000 nm） and spectral set Ⅱ （ 900 ～ 1 700 nm） ，
+were used to collect diffuse reflectance hyperspectral images of Camellia oleifera seed，and the regression
+prediction model of oil content of Camellia oleifera seed was established in combination with
+chemometrics． The results showed that the partial least squares regression model （ PLSＲ） established by
+the two sets of spectral data without pretreatment had the highest accuracy： the determination coefficient
+of prediction （ Ｒ2p ） of the spectral set Ⅰ was 0. 681，and the root mean square error of prediction set
+（ ＲMSEP） was 2. 89% ； Ｒ2p of spectral set Ⅱ was 0. 740，and ＲMSEP was 2. 92% ． Comparing seven
+different variable selection methods，it was found that the two sets of spectral sets used genetic algorithm
+（ GA） to filter the characteristic wavelength to establish the PLSＲ model with the highest accuracy： the
+spectral set Ⅰ had Ｒ2p of 0. 694 and ＲMSEP of 2. 82% ； the spectral set Ⅱ had Ｒ2p of 0. 779 and ＲMSEP
+of 2. 54% ． Comparing the modeling effects of spectral set Ⅰ and spectral set Ⅱ，it was found that the
+performance of the PLSＲ model established by spectral set Ⅱ was better than that of the spectral set Ⅰ，
+so the band of 900 ～ 1 700 nm was more suitable for the oil content detection of Camellia oleifera seed
+than the band of 400 ～ 1 000 nm． Besides，the feasibility of using HSI to visualize the distribution of the
+predicted value of the oil content of Camellia oleifera seed was further verified． This result can provide a
+method for the rapid detection of the oil content distribution of Camellia oleifera seed and the selection of
+high-quality its varieties．
+Key words： Camellia oleifera seed； oil content； detection； hyperspectral imaging
+收稿日期： 2020
+
+07
+
+15
+
+修回日期： 2020
+
+08
+
+15
+
+基金项目： 国家重点研发计划项目（ 2016YFD0701501）
+作者简介： 周宏平（ 1964—） ，男，教授，博士生导师，主要从事植保技术与装备、光谱检测技术研究，E-mail： hpzhou@ njfu． edu． cn
+
+第5 期
+
+周宏平 等： 基于高光谱成像的油茶籽含油率检测方法
+
+论依据与技术基础。
+
+引言
+
+0
+
+油茶属山茶科山茶属植物，为常绿小乔木或灌
+［1］
+木 ，是原产于我国南方的乡土树种，具有栽培历
+史悠久、分布区域广、栽培面积大、用途多等特点，与
+油橄 榄、油 棕、椰 子 并 称 为 世 界 四 大 木 本 油 料 树
+［2］
+
+种
+
+309
+
+。目前，我国油茶种植面积已达 437 万 hm2 ，年
+［3］
+
+产茶油 60 万 t，产值近千亿元 。 油茶的主要产物
+是茶油，茶油含有丰富的营养成分，油酸质量分数超
+过 80% ，不饱和脂肪酸质量分数达 90% ，比橄榄油
+［4］
+高 6 个百分点 。
+油茶籽含油率是影响茶油产量的重要因素，也
+［5］
+是油茶采摘时间的重要参考指标 。 目前茶籽油
+
+1
+
+材料与方法
+
+1. 1
+
+实验材料
+
+油茶籽样品来自安徽省芜湖市无为县联合行政
+村联合农业发展有限公司的油茶林，于 2019 年 10
+月 10 日和 10 月 14 日采摘油茶鲜果共 109 个，当天
+带回实验室进行果高、果径、质量等形态参数的测
+量，并置于冰箱 4℃ 环境下保存，于第二天取出、去
+壳，采集油茶鲜籽的高光谱图像，干燥后采集含油率
+数据。
+1. 2 高光谱成像系统
+高光谱成像系统采用南京林业大学生物质包装
+
+［6］
+常用的提取方法包括压榨法、溶剂法和水酶法 ，
+这些方法存在提取率低、含有机溶剂残留、成本较高
+
+无损检测实验室搭建的高光谱成像无损检测平台 ，
+主要包括两台光谱仪 （ GaiaField V10E AZ4 型，
+
+等缺点，不适合用于实验室内对单个或少许茶籽进
+行的含油率检测。因此，迫切需要一种能够快速、准
+
+400 ～ 1 000 nm （ 光 谱 集 Ⅰ ） ； GaiaField
+
+900 ～ 1 700 nm（ 光谱集Ⅱ） ） 、两 台 探 测 器 （ sCMOS
+
+确地检测油茶籽含油率的方法，以便于茶籽品种的
+鉴别和筛选。
+
+InGaAs 相机） 、一条白色食品级传送带 （ HSIA
+相机、
+CSD800 型） 、一套由 12 只 50 W 的卤素灯和漫反射
+
+高光谱成像是一种集光谱和图像于一体的技
+
+穹顶组成的照明系统以及一台计算机 。其中成像光
+谱仪的光谱分辨率分别为 2. 8 nm 和 5 nm，被测物品
+
+术，图像中的每个像素点都包含特定位置的光谱信
+息，与传统近红外光谱相比，其优势之一是可实现被
+［7］
+
+测物各组分分布情况的可视化
+
+。 文献［8］利用近
+
+N17E 型，
+
+置于传送带上的载物台，步进电机驱动传送带使被
+测物品运动，暗箱用于屏蔽外界杂散光对数据采集
+
+红外光谱建立了橄榄果肉中油含量的偏最小二乘回
+归模型（ Partial least squares regression，PLSＲ） ，模型
+
+的干扰。
+1. 3 高光谱图像采集和校正
+
+的校正集相关系数 Ｒ c 为 0. 848，交叉验证均方根误
+差 （ Ｒoot mean square error of cross validation，
+ＲMSECV） 为 0. 901。文献［9］采集了不同成熟度油
+
+高光 谱 图 像 数 据 获 取 基 于 计 算 机 上 的
+SpecView 软件，将高光谱仪器预热 30 min 后进行油
+茶籽图像采集。为了避免获取的图像失真，经过多
+
+棕的高光谱信息，发现 750 nm 是适用于棕油含量定
+量检测的最佳波长。文献［10］利用两组光谱集 （ 光
+
+次预实验确定最佳的数据采集参数如下 ： 光谱仪Ⅰ
+的曝光物距为 300 mm，曝光时间为 1. 2 ms，电控位
+
+谱 集 Ⅰ： 400 ～ 1 000 nm； 光 谱 集 Ⅱ： 1 000 ～
+2 500 nm） ，结合化学计量方法检测不同品种花生的
+
+移台扫描速度是 0. 601 4 nm / s，扫描线实际长度是
+200 mm，图像分辨率是 800 像素 × 664 像素； 光谱仪
+
+含油量，建立的 PLSＲ 模型的预测集决定系数分别
+为 0. 696 和 0. 923。 文献［11］研究发现，使用高光
+
+Ⅱ的曝光物距为 300 mm，曝光时间为 7. 5 ms，电控
+位移台扫描速度是 2. 256 8 nm / s，扫描线实际长度
+
+谱数据建立的径向基神经网络模型能较好地预测油
+茶籽脂肪酸的成分含量。 文献［12］利用 30 份油茶
+
+是 200 mm，图像分辨率是 640 像素 × 542 像素； 每次
+采集同一个油茶果中 3 粒油茶籽的高光谱图像，并
+
+籽的近红外光谱数据建立了含油率的 PLSＲ 模型，
+其校正集相关系数为 0. 93。 这些研究结果为使用
+
+取其平均值作为样本的最终光谱数据 。
+
+光谱分析技术进行油料作物含油率检测奠定了良好
+的理论基础。
+
+响，而且不同波段下成像系统光源的强度分布也不
+均匀，从而导致获取的高光谱图像中含有较大的噪
+
+目前，国内外有关采用高光谱成像技术检测油
+茶籽含油率的研究尚未见报道。本文旨在探讨波长
+
+声。因此要对其进行黑白校正以消除暗电流的影
+［13 － 14］
+响，校正方法为
+
+由于高光谱图像采集过程中存在暗电流的影
+
+在 400 ～ 1 000 nm 和 900 ～ 1 700 nm 范围内的高光谱
+相机检测油茶籽含油率的可行性，并对比两个波段
+的检测效果，以期开发一种快速检测油茶籽含油率
+的方法，为油茶籽优质育种与品质快检分选提供理
+
+Ｒe =
+式中
+
+Ｒ0 － D
+W －D
+
+Ｒ e ———校正后的漫反射光谱图像数据
+Ｒ0 ———样本原始的漫反射光谱图像数据
+
+（ 1）
+
+农
+
+310
+
+1. 4
+
+业
+
+机
+
+械
+
+学
+
+报
+
+2021年
+
+D———暗图像数据
+
+optimization，PSO） 是一种源于对鸟群捕食行为研究
+
+W———白板的漫反射图像数据
+
+的进化计算技术。在 PSO 中，每个优化问题的潜在
+解可看作高维空间上的一个粒子，所有粒子都拥有
+
+含油率测定
+
+油茶籽含油率采用 NAI ZFCDY 6Z 型脂肪
+测定 仪 （ 上 海 那 艾 精 密 仪 器 有 限 公 司 ） 按 照
+
+速度以及由目标函数决定的适应值，粒子们通过追
+［19］
+随当前的最优粒子在解空间中搜索 。 本研究中
+
+GB 5009. 6— 2016 规 定 的 方 法 测 定。 首 先 采 用
+BSM 220. 4 型分析天平（ 上海卓精电子科技有限公
+
+粒子种群大小设置为 20，迭代次数为 1 000，以 F =
+Ｒ2 作为适应度函数（ 其中 Ｒ2 表示决定系数 ） 。 光谱
+
+司） 称取油茶仁 2. 000 g，磨碎后移入滤纸筒内，并将
+滤纸筒放入索氏抽提器的抽提筒内，连接已干燥至
+
+集Ⅰ筛选出 18 个特征波长，光谱集Ⅱ筛选出 18 个
+特征波长。
+
+质量恒定的接收瓶，由抽提器冷凝管上端加入60 mL
+无水乙醚至瓶内容积的 2 /3 处，于水浴上加热，使无
+
+（ 4） 蚁群优化 （ Ant colony optimization，ACO） 算
+
+水乙醚不断回流抽提 6 h。然后取下接收瓶，回收无
+水乙醚，待接收瓶内溶剂剩余 1 ～ 2 mL 时在水浴上
+蒸干，再于 100℃ 干燥箱内干燥 1 h，放干燥器内冷
+却 0. 5 h 后称量。最后按照文献［15］的方法计算油
+茶籽含油率，公式为
+Ｒ ratio =
+式中
+
+M oil
+× 100%
+M seed
+
+（ 2）
+
+M oil ———出油质量
+M seed ———茶仁质量
+
+1. 5
+
+变量选择方法
+
+高光谱数据量大且数据之间的共线性严重，影
+［16］
+响模型的运算速度 。 因此采用以下 7 种方法提
+取有效信息变量并进行对比，从而得到最优的变量
+选择方法：
+（ 1） 连 续 投 影 算 法 （ Succesive projections
+
+法是模拟蚂蚁的合作和适应机制等自然行为的一种
+正反馈式算法。每个蚂蚁在其所经过的路径上会遗
+留一种叫做信息素的挥发性物质，蚂蚁通过信息素
+及其强度的反馈机制选择路径，所有蚂蚁找到的特
+［20］
+定路径便是解决目标问题的最优方案 。 本研究
+中设置蚁群大小为 30，光谱窗口为 1，迭代次数为
+
+100，适应度函数 F = （ 1 + Q ＲMSECV ） / Ｒ2 （ 其中 Q ＲMSECV
+表示交叉验证均方根误差 ） 。 光谱集 Ⅰ 筛选出 18
+个特征波长，光谱集Ⅱ筛选出 18 个特征波长。
+（ 5） 模拟退火 （ Simulated annealing，SA） 算法是
+一种基于固体物理退火原理而研发的随机全局优化
+算法，SA 在解决组合优化问题时先从某一模拟较高
+初 温 开 始，随 着 温 度 参 数 的 不 断 下 降，结 合
+Metropolis 标准在解空间中随机寻找目标函数的全
+［21］
+
+局最优解
+
+。本研究设置初始温度 T0 = 50℃ ，第 k
+
+algorithm，SPA） 是一种前向选择算法，通过在光谱中
+
+个温度控制参数值 T k = 0. 96T0 ，终止温度 T f = 0℃ ，
+第 k 个马尔可夫链的长度 L k = 50，迭代次数为 100。
+
+寻找最低限度冗余光谱信息变量集，使得变量之间
+［17］
+的共线性最小化 。 该方法要预先设置选择的变
+
+光谱集Ⅰ筛选出 30 个特征波长，光谱集Ⅱ筛选出
+26 个特征波长。
+
+量数范围，最终选择的变量数在该范围内对应最低
+的均方根误差 （ Ｒoot mean square error，ＲMSE） 。 本
+
+（ 6） 区间随机蛙跳（ Interval random frog，iＲF） 算
+
+研究中选择的最佳变量数范围为 5 ～ 30，光谱集Ⅰ
+筛选了 8 个特征波长，光谱集Ⅱ筛选了 11 个特征
+波长。
+（ 2 ） 竞 争 性 自 适 应 重 加 权 算 法 （ Competitive
+adaptive reweighted sampling，CAＲS） 是一种以回归
+系数作为变量重要性指标的变量选择方法 。该方法
+利用自适应重加权采样技术和指数衰减函数优选出
+每次循环所构建的 PLSＲ 模型中回归系数绝对值大
+
+法是基于随机蛙跳算法提出的一种波长间隔选择方
+法。基本思想是将整个光谱按照特定宽度划分成若
+干子区间，通过每个区间光谱点的绝对回归系数总
+［22 － 23］
+。本研究参
+和来评估区间，找到最佳区间组合
+数设置如下： 移动窗口大小 ω = 3，初始化子集变量
+个数为 5，最大主成分数为 10，迭代次数为 500。 光
+谱集Ⅰ筛选出 10 个特征波长，光谱集Ⅱ筛选出 10
+个特征波长。
+（ 7） 遗传算法（ Genetic algorithm，GA） 是模拟达
+
+的变量点，并将交互验证选出 N 个 PLSＲ 子集模型
+［18］
+中 ＲMSECV 最小的子集定义为最优变量子集 。
+
+尔文生物进化论的自然选择和遗传学机理的生物进
+化过程的计算模型，是一种通过模拟自然进化过程
+
+本研究中将蒙特卡洛采样次数设置为 2 000，每次运
+行程序选择的校正集和预测集样本数比例为 2 ∶ 1。
+
+［24］
+搜索 最 优 解 的 方 法 。 本 研 究 设 置 进 化 代 数 为
+150，算法运行次数 30，种群大小为 64，初始时平均
+
+光谱集Ⅰ筛选出 14 个特征波长，光谱集Ⅱ筛选出
+16 个特征波长。
+
+5 个波长构成一个染色体，染色体个数为 20，变异概
+
+（ 3 ） 粒 子 群 优 化 算 法 （ Particle swarm
+
+率为 1% 。光谱集Ⅰ筛选出 26 个特征波长，光谱集
+Ⅱ筛选出 28 个特征波长。
+
+周宏平 等： 基于高光谱成像的油茶籽含油率检测方法
+
+第5 期
+
+1. 6
+
+311
+
+建模方法及模型评价
+本文应用 PLSＲ 建 立 油 茶 籽 含 油 率 的 检 测 模
+
+型。PLSＲ 是光谱分析中应用最广泛的化学计量方
+法，该方法同时将自变量和因变量数据矩阵进行分
+解，把因变量信息引入到自变量数据的分解过程中 ，
+使得自变量主成分直接与样品被测组分含量相关
+［25］
+联 。在 PLSＲ 中，确定潜变量数是保证模型性能
+的关键，本研究采用交叉验证法 （ Cross validation，
+CV） 通过最小 ＲMSECV 确定最优的潜变量数。
+2
+
+本文采用决定系数 Ｒ 和 ＲMSE 作为评价 PLSＲ
+2
+模型的指标，Ｒ 越高、ＲMSE 越低说明 PLSＲ 模型的
+预测 性 能 越 好。 数 据 处 理 软 件 包 括 ENVI 5. 1、
+Matlab 2014a。
+1. 7
+
+含油率分布可视化
+
+使用单一的化学计量方法很难测量样品每个部
+分的化学成分，而高光谱成像的优势在于可以通过
+校准模型对高光谱图像中样品的每个像素点的化学
+成分进行预测，从而得到整个样品的理化成分含量
+［26 － 27］
+
+分布图
+
+。预测值的准确性主要依赖于校准模
+
+图1
+
+型的性能，也可通过选择特征波长减少数据冗余 ，获
+得更好的模型结果。
+
+Fig． 1
+
+油茶籽原始反射光谱曲线
+
+Original reflection spectrum curves of
+Camellia oleifera seed
+
+油茶籽含油率统计
+
+2
+
+结果与分析
+
+2. 2
+
+2. 1
+
+原始光谱
+由于使用 3 颗完整的油茶籽作为 1 个样品进行
+
+cross-validation，MCCV） 识 别 并 剔 除 了 7 个 奇 异 样
+
+含油率测定，所以选取 3 颗油茶籽的表面作为每个
+样品的感兴趣区域 （ Ｒegion of interest，ＲOI） 。 光谱
+
+最优主成分数，然后利用 MCCV 每次随机选取 67%
+
+本研究 采 用 蒙 特 卡 罗 交 叉 验 证 （ Monte Carlo
+本。首先通过对所有油茶籽数据作交互检验，确定
+的样本建立 PLSＲ 模型，剩余 33% 的样本用于预测。
+
+集Ⅰ和光谱集Ⅱ分别在 936. 2 nm 和 1 133. 9 nm 处
+设置反射率阈值为 0. 3，可有效提取油茶籽的高光
+
+经过 5 000 次蒙特卡罗采样后，计算每个样本预测
+
+［28］
+谱信息 。 此外光谱集Ⅰ在 336. 2 ～ 416. 6 nm 和
+994. 9 ～ 1 092. 5 nm 范围内存在较大的噪声，光谱
+
+偏差的样本定义为奇异样本并从总样本中剔
+
+集Ⅱ在874. 0 ～ 1 038. 3 nm 和 1 564. 9 ～ 1 731. 0 nm
+范围 内 存 在 明 显 的 噪 声，所 以 分 别 取 416. 6 ～
+994. 9 nm 和1 038. 3 ～ 1 564. 9 nm 作为两组光谱集
+的有效波段，原始光谱如图 1 所示。
+可见和近红外波段最主要的吸收带是由于强泛
+音和含 氢 键 O—H （ 来 自 水 ） 、C—H （ 来 自 脂 肪 和
+
+残差的均值和标准偏差，将具有较高的均值和标准
+［31 － 32］
+
+除
+
+［33］
+
+的统计，使用 SPXY 算法
+
+属性、表面 结 构 不 均 匀 性 以 及 表 面 无 规 律 散 射 有
+［29］
+关 。图 1a 中，930 nm 附近的吸收峰与 C—H 伸
+
+将总样本按照 2 ∶ 1 划分
+
+为校正集 和 预 测 集。 油 茶 籽 含 油 率 在 19. 17% ～
+45. 12% 之间，说明样本之间的差异性较大，有利于
+建立稳定的校准模型。
+表1
+Tab． 1
+
+油） 、N—H（ 来自蛋白质 ） 的组合吸收而产生，油茶
+籽的光谱反射率曲线在光谱集Ⅰ和光谱集Ⅱ上存在
+一定的差异（ 图 1） ，这些差异可能与油茶籽的质量
+
+。表 1 是剩余的 102 份油茶籽样品含油率
+
+102 份油茶籽样品含油率
+
+Oil content of 102 Camellia oleifera seeds
+数量
+
+含油率 / %
+最小值
+
+最大值
+
+平均值
+
+标准差
+
+校正集
+
+68
+
+19. 17
+
+45. 12
+
+33. 04
+
+5. 85
+
+预测集
+
+34
+
+20. 33
+
+43. 13
+
+33. 11
+
+5. 12
+
+总样本
+
+102
+
+19. 17
+
+45. 12
+
+33. 07
+
+5. 59
+
+［25］
+
+展的第三泛音有关 。 图 1b 中，在 1 400 nm 附近
+有较强的水吸收峰，在 1 220 nm 处的吸收峰与油含
+
+2. 3
+
+量相关，是由脂肪组分中甲基或亚甲基基团的 C—
+H 伸展的第一和第二泛音所致［30］。
+
+原始光谱数据中，存在多种因素对数据的准确
+性造成影响，如采集过程中光源强度分布不均匀 、摄
+
+全光谱 PLSＲ 建模
+
+农
+
+312
+
+业
+
+机
+
+像头暗电流的存在以及油茶籽自身形状的不规则性
+等，因此在建模前通过预处理方法消除目标信息和
+
+械
+
+学
+
+报
+
+2021年
+
+能明显优于光谱集Ⅰ的模型性能。
+2. 4 特征波长选择
+
+噪声干 扰。 分 别 使 用 MSC （ 多 元 散 射 校 正 ） 、SNV
+（ 标准正态变换 ） 、SG（ Savitzky Golay 卷积平滑 ） 、
+
+征波长的分布情况。对于光谱集Ⅰ，使用 SPA 选择
+
+Normalize（ 归一化） 、Detrend（ 去趋势） 共 5 种方法对
+
+的波长数量最少，使用 SA 选择的波长数量最多。
+
+原始光谱进行预处理，并建立油茶籽含油率的 PLSＲ
+3 所示。
+预测模型，建模结果如表 2、
+
+使用 SPA 和 iＲF 选择的波长分布在特定的区域，使
+
+图 2 所示为 7 种方法对两组光谱集筛选出的特
+
+用其他方法选择的波长相对分散不连续 。进行变量
+
+光谱集ⅠPLSＲ 模型预测结果
+
+筛选 后，光 谱 集 Ⅰ 变 量 数 量 减 少 了 83. 5% ～
+
+Tab． 2
+
+PLSＲ model predicted results of spectrum set Ⅰ
+
+93. 0% 。对于光谱集Ⅱ，使用 iＲF 选择的波长数量
+
+预处理
+
+潜变
+
+最少，使用 GA 选择的波长数量最多。 使用 7 种方
+
+方法
+
+量数
+
+表2
+
+Ｒ2c
+
+ＲMSEC /
+%
+
+Ｒ2p
+
+ＲMSEP / ＲMSECV /
+%
+
+%
+
+法选择的波长均相对分散不连续。 进行变量筛选
+
+无
+
+9
+
+0. 683
+
+3. 27
+
+0. 681
+
+2. 89
+
+4. 41
+
+MSC
+
+10
+
+0. 715
+
+3. 10
+
+0. 560
+
+3. 51
+
+4. 48
+
+后，光谱集Ⅱ变量数量减少了 91. 1% ～ 96. 5% 。 可
+
+SNV
+
+9
+
+0. 716
+
+3. 10
+
+0. 529
+
+3. 64
+
+4. 13
+
+以发现不同方法选择的特征波长数量不同 ，因此确
+
+SG
+
+12
+
+0. 730
+
+3. 02
+
+0. 567
+
+3. 52
+
+4. 56
+
+定最优变量选择方法显得非常必要 。
+
+Normalize
+
+11
+
+0. 760
+
+2. 85
+
+0. 573
+
+3. 53
+
+4. 40
+
+Detrend
+
+10
+
+0. 754
+
+2. 88
+
+0. 650
+
+3. 09
+
+4. 04
+
+表3
+
+光谱集ⅡPLSＲ 模型预测结果
+
+Tab． 3
+
+PLSＲ model predicted results of spectrum set Ⅱ
+
+预处理
+
+潜变
+
+方法
+
+量数
+
+Ｒ2c
+
+ＲMSEC /
+%
+
+Ｒ2p
+
+ＲMSEP / ＲMSECV /
+%
+
+%
+
+无
+
+8
+
+0. 813
+
+2. 44
+
+0. 740
+
+2. 92
+
+3. 24
+
+MSC
+
+8
+
+0. 778
+
+2. 66
+
+0. 718
+
+2. 95
+
+3. 38
+
+SNV
+
+9
+
+0. 798
+
+2. 54
+
+0. 694
+
+3. 03
+
+3. 22
+
+SG
+
+9
+
+0. 721
+
+2. 99
+
+0. 691
+
+3. 04
+
+3. 95
+
+Normalize
+
+10
+
+0. 814
+
+2. 44
+
+0. 645
+
+3. 38
+
+3. 24
+
+Detrend
+
+9
+
+0. 751
+
+2. 83
+
+0. 599
+
+3. 58
+
+3. 64
+
+3 中可以看出： 对于光谱集Ⅰ，使用原始
+从表 2、
+光谱及 5 种预处理方法建立的 PLSＲ 模型的校正集
+2
+
+决定系数 Ｒ c 在 0. 68 ～ 0. 76 之间，其中 Normalize
+PLSＲ 的 Ｒ2c 最高，为 0. 760，且其校正集均方根误差
+（ Ｒoot mean square error of calibration，ＲMSEC） 最低，
+为 2. 85% 。但原始光谱的 PLSＲ 模型的预测集决定
+2
+系数 Ｒ p 最高，为 0. 681，且相应的预测集均方根误
+差 （ Ｒoot mean square error of prediction，ＲMSEP） 相
+对于其他预处理方法低，几种预处理方式建模后的
+
+图2
+Fig． 2
+
+ＲMSECV 均在 4. 0% 以上。 对于光谱集Ⅱ，使用原
+
+2
+
+低，为 2. 44% 。 但原始光谱的 PLSＲ 模型的 Ｒ p 最
+高，为 0. 740，且相应的 ＲMSEP 也相对于其他预处
+理方法低，几种预处理方式建模 后 的 ＲMSECV 在
+3. 2% ～ 4. 0% 之间。
+比较各种预处理数据建立的 PLSＲ 模型，发现
+光谱集Ⅰ和光谱集Ⅱ均使用全波长原始数据建立的
+PLSＲ 模型精度较高，并且光谱集Ⅱ的 PLSＲ 模型性
+
+Distributions of characteristic wavelengths
+selected by different methods
+
+2
+
+始光谱及 5 种预处理方法建立的 PLSＲ 模型的 Ｒ c
+
+2
+在 0. 72 ～ 0. 82 之间，其中 Normalize PLSＲ 的 Ｒ c 最
+高，为 0. 814，且其 ＲMSEC 在 5 种预处理方法中最
+
+不同方法选择的特征波长分布
+
+2. 5
+
+特征波长 PLSＲ 建模
+不同变 量 选 择 方 法 筛 选 出 的 特 征 波 长 PLSＲ
+
+5 所示 。 对于光谱集Ⅰ ，
+7 种变量
+建模结果如表 4、
+选择方法建立的 PLSＲ 模型的预测性能差别较大 ，
+Ｒ 2p 在 0. 43 ～ 0. 70 之间 ，但总体来说相对于全光谱
+建模的精度有所提升 。 其中 PSO
+
+PLSＲ 模型性能
+
+2
+c
+
+2
+最差 ： Ｒ = 0. 570，ＲMSEC 为 3. 81% ，Ｒ p = 0. 435，
+ＲMSEP 为 3. 86% ，ＲMSECV 为 4. 92% ，原 因 是 所
+
+选的特征波 长 在 较 短 的 区 域 内 是 连 续 的 ，而 一 些
+
+周宏平 等： 基于高光谱成像的油茶籽含油率检测方法
+
+第5 期
+
+313
+
+有效的波长却被剔除 。 与 全 光 谱 的 PLSＲ 模 型 相
+PLSＲ 模 型 的 Ｒ 2p 降 低 了 36. 123% ，
+比 ，PSO
+
+与全光谱的 PLSＲ 模型相比 ，经 GA 降维后的 PLSＲ
+2
+模 型 的 Ｒ p 升 高 了 1. 873% ，ＲMSEP 降 低 了
+
+ＲMSEP 升高了 33. 564% 。GA
+
+2. 422% 。iＲF
+
+PLSＲ 模型性能最
+
+2
+c
+
+好 ，如 图 3a 所 示 ： Ｒ = 0. 734，ＲMSEC 为 3. 00% ，
+2
+p
+
+Ｒ = 0. 694，ＲMSEP 为 2. 82% ，ＲMSECV 为 3. 63% 。
+表4
+Tab． 4
+降维方法
+
+PLSＲ 模型的校正集结果较好 ，而
+
+预测集结果较差 ，CAＲS
+谱建模相当 。
+
+PLSＲ 模型的结果与全光
+
+光谱集Ⅰ特征波长 PLSＲ 模型预测结果
+
+PLSＲ model predicted results based on characteristic wavelengths of spectrum set Ⅰ
+
+波段数量
+
+Ｒ2c
+
+潜变量数
+
+Ｒ2p
+
+ＲMSEC / %
+
+ＲMSEP / %
+
+ＲMSECV / %
+
+SPA
+
+8
+
+7
+
+0. 679
+
+3. 28
+
+0. 553
+
+3. 48
+
+3. 80
+
+CAＲS
+
+13
+
+7
+
+0. 721
+
+3. 07
+
+0. 673
+
+2. 95
+
+3. 62
+
+PSO
+
+16
+
+9
+
+0. 570
+
+3. 81
+
+0. 435
+
+3. 86
+
+4. 92
+
+ACO
+
+18
+
+9
+
+0. 600
+
+3. 67
+
+0. 535
+
+3. 45
+
+4. 91
+
+SA
+
+19
+
+12
+
+0. 564
+
+3. 84
+
+0. 462
+
+3. 82
+
+5. 43
+
+iＲF
+
+10
+
+7
+
+0. 687
+
+3. 25
+
+0. 466
+
+4. 06
+
+3. 90
+
+GA
+
+14
+
+11
+
+0. 734
+
+3. 00
+
+0. 694
+
+2. 82
+
+3. 63
+
+表5
+Tab． 5
+
+波段数量
+
+降维方法
+
+光谱集Ⅱ特征波长 PLSＲ 模型预测结果
+
+PLSＲ model predicted results based on characteristic wavelengths of spectrum set Ⅱ
+潜变量数
+
+Ｒ2c
+
+Ｒ2p
+
+ＲMSEC / %
+
+ＲMSEP / %
+
+ＲMSECV / %
+
+SPA
+
+11
+
+8
+
+0. 831
+
+2. 32
+
+0. 741
+
+2. 79
+
+2. 81
+
+CAＲS
+
+16
+
+7
+
+0. 813
+
+2. 44
+
+0. 779
+
+2. 68
+
+2. 99
+
+PSO
+
+18
+
+10
+
+0. 771
+
+2. 71
+
+0. 582
+
+3. 90
+
+3. 76
+
+ACO
+
+18
+
+6
+
+0. 568
+
+3. 71
+
+0. 442
+
+4. 16
+
+4. 59
+
+SA
+
+26
+
+9
+
+0. 785
+
+2. 62
+
+0. 705
+
+3. 05
+
+3. 50
+
+iＲF
+
+10
+
+8
+
+0. 713
+
+3. 03
+
+0. 647
+
+3. 62
+
+4. 17
+
+GA
+
+28
+
+8
+
+0. 852
+
+2. 18
+
+0. 779
+
+2. 54
+
+2. 63
+
+2
+
+模型的预测性能差别较大，Ｒ p 在 0. 44 ～ 0. 78 之间，
+但总体来说相对于全光谱建模的精度有所提升 。其
+中 ACO
+
+PLSＲ 模型性能最差： Ｒ2c = 0. 568，ＲMSEC
+2
+
+为 3. 71% ，Ｒ p = 0. 442，ＲMSEP 为 4. 16% ，ＲMSECV
+为 4. 59% ，原因是某些波长的共线性程度较高。 与
+2
+全光谱的 PLSＲ 模型相比，ACO PLSＲ 模型的 Ｒ p 降
+
+低了 40. 270% ，ＲMSEP 升 高 了 42. 466% 。 GA
+PLSＲ 模 型 性 能 最 好，如 图 3b 所 示： Ｒ2c = 0. 852，
+ＲMSEC 为 2. 18% ，Ｒ2p = 0. 779，ＲMSEP 为 2. 54% ，
+ＲMSECV 为 2. 63% 。与全光谱的 PLSＲ 模型相比，
+GA
+
+PLSＲ 模型的 Ｒ2p 升高了 5. 006% ，ＲMSEP 降低
+
+了 13. 014% 。PSO
+
+PLSＲ 模型的校正集结果较好，
+
+而预测集 结 果 较 差，CAＲS
+
+PLSＲ 模 型 的 结 果 与
+
+GA PLSＲ 相当。
+对比光谱集Ⅰ和光谱集Ⅱ经变量选择后建立的
+PLSＲ 模型对油茶籽含油率的预测能力发现 ，使用光
+谱集Ⅱ建立的模型性能更好，因为油茶籽在 900 ～
+1 700 nm 范 围 内 呈 现 的 光 谱 特 征 峰 多 于 400 ～
+图3
+Fig． 3
+
+GA
+
+GA
+
+PLSＲ 模型预测结果
+
+PLSＲ model predicted results
+
+7 种变量选择方法建立的 PLSＲ
+对于光谱集Ⅱ，
+
+1 000 nm 内的特征峰。
+2. 6
+
+油茶籽含油率预测值的可视化
+由于光谱 集 Ⅱ 的 PLSＲ 模 型 效 果 明 显 优 于 光
+
+农
+
+314
+
+业
+
+机
+
+械
+
+学
+
+报
+
+2021年
+
+谱集Ⅰ ，因此使用光谱集Ⅱ的最优校正模型 （ GA
+PLSＲ） 计算高光谱图像中油茶籽每个像素点的含
+
+以相似的颜色显示 ，但 该 图 中 最 小 预 测 值 和 最 大
+预测值都超出了校 正 集 的 参 考 值 范 围 ，说 明 存 在
+
+油率 ，再使用 伪 彩 色 图 像 处 理 方 法 生 成 含 油 率 的
+分布图 ，如 图 4 所 示 。 图 中 可 以 明 显 地 观 察 到 油
+
+预测误差 。 此外 ，每 个 油 茶 籽 四 周 边 缘 处 颜 色 鲜
+艳 ，对 应 较 高 的 含 油 率 ，推 测 是 因 为 边 缘 处 只 有
+
+茶籽含油率 由 小 到 大 变 化 ，并 且 具 有 相 似 光 谱 特
+征的像素点 对 应 的 含 油 率 预 测 值 近 似 ，在 图 像 中
+
+油茶 籽 壳 而 没 有 茶 仁 ，从 而 导 致 较 高 的 预 测
+误差 。
+
+图4
+Fig． 4
+
+油茶籽含油率分布可视化结果
+
+Visualizations of oil content distribution of Camellia oleifera seed
+
+该结果证明了利用高光谱成像技术实现油茶籽
+含油率含量分布可视化的可行性，对不同油茶籽含
+油率的快速无损评估具有重要意义 。
+
+GA 等 7 种不同的特征波长筛选方法发现： 对于光
+2
+谱集Ⅰ，GA PLSＲ 模型的精度最高，Ｒ p 为 0. 694，
+ＲMSEP 为 2. 82% ； 对于光谱集Ⅱ，GA PLSＲ 模型
+2
+
+3
+
+精度最高，Ｒ p 为 0. 779，ＲMSEP 为 2. 54% 。 并且两
+组光谱集的 GA PLSＲ 模型精度均比原始光谱的
+
+结论
+（ 1） 通 过 对 比 不 同 的 预 处 理 方 式 发 现，光 谱
+
+PLSＲ 模型精度略有提升。
+
+2
+p
+
+集Ⅰ的 原 始 光 谱 的 PLSＲ 模 型 精 度 最 高： Ｒ 为
+0. 681、ＲMSEP 为 2. 89% ，光谱集Ⅱ同样是原始光谱
+2
+p
+
+的 PLSＲ 模 型 精 度 最 高： Ｒ 为 0. 740、ＲMSEP 为
+2. 92% 。
+（ 2） 通过对比 SPA、CAＲS、PSO、ACO、SA、iＲF、
+参
+
+考
+
+（ 3） 通过对比光谱集Ⅰ和光谱集Ⅱ的建模效果
+发现，使用光谱集Ⅱ的原始数据或降维后的数据建
+立的回归模型的精度均比光谱集Ⅰ高，因此 900 ～
+1 700 nm 波段更适用于油茶籽含油率的快 速 无 损
+检测。
+文
+
+献
+
+［1］ 邹锡兰，吴尚清． 国务院批准颁布《全国油茶产业发展规划（ 2009—2020 年） 》 千亿油茶产业待破局［J］． 中国经济周
+刊，2009（ 47） ： 45 － 46．
+［2］ 庄瑞林． 中国油茶［M］． 2 版． 北京： 中国林业出版社，2008．
+［3］ 焦玉海，欧日明． 加大政策支持力度推进油茶产业健康发展［J］． 经济林研究，2018，
+36（ 3） ： 191．
+JIAO Yuhai，OU Ｒiming． Increase policy support to promote the healthy development of the Camellia oleifera industry［J］．
+Nonwood Forest Ｒesearch，2018，
+36（ 3） ： 191． （ in Chinese）
+［4］ 贾治邦，封加平，邓三龙． 在创新中推进油茶产业高质量发展———来自大三湘的调研报告［J］． 中国林业产业，2019
+（ 3） ： 6 － 15．
+JIA Zhibang，FENG Jiaping，DENG Sanlong． Promoting the high-quality development of oil tea industry in innovation—a
+research report from Dasanxiang［J］． China Forestry Industry，2019（ 3） ： 6 － 15． （ in Chinese）
+［5］ 尹维万． 油茶收摘要适时［J］． 湖南林业，2003（ 8） ： 23．
+YIN Weiwan． Camellia oleifera abel need be harvested at the right time［J］． Hunan Forestry Science Technology，2003（ 8） ： 23．
+（ in Chinese）
+20（ 1） ： 11 － 13．
+［6］ 李宁． 不同方法提取茶籽油的工艺对比研究［J］． 粮食与食品工业，2013，
+LI Ning． Comparative study on technology of tea-seed oil extraction in different ways［J］． Cereal ＆ Food Industry，2013，
+20（ 1） ： 11 － 13． （ in Chinese）
+［7］ GOMEZ-SANCHIS J，GOMEZ-CHOVA L，AlEIXOS N，et al． Hyperspectral system for early detection of rottenness caused by
+Penicillium digitatum in mandarins［J］． Journal of Food Engineering，2008，
+89（ 1） ： 80 － 86．
+［8］ CAYUELA J A，CAMINO M D C P． Prediction of quality of intact olives by near infrared spectroscopy［J］． European Journal of
+Lipid Science ＆ Technology，2010，
+112（ 11） ： 1209 － 1217．
+［9］ JUNKWON P，TAKIGAWA T，OKAMOTO H，et al． Hyperspectral imaging for nondestructive determination of internal
+qualities for oil palm （ Elaeis guineensis Jacq． var． tenera） ［J］． Agricultural Information Ｒesearch，2009，
+18（ 3） ： 130 － 141．
+［10］ JIN H，MA Y，LI L，et al． Ｒapid and non-destructive determination of oil content of peanut （ Arachis hypogaea L． ） using
+hyperspectral imaging analysis［J］． Food Analytical Methods，2016，
+9（ 7） ： 2060 － 2067．
+37（ 7） ： 56 － 60．
+［11］ 蒋蘋，罗亚辉，胡文武，等． 基于高光谱的油茶籽内部品质检测最优预测模型研究［J］． 农机化研究，2015，
+JIANG Pin，LUO Yahui，HU Wenwu，et al． Ｒesearch on optimal predicting model for the detection of internal quality by
+hyperspectral technology［J］． Journal of Agricultural Mechanization Ｒesearch，2015，
+37（ 7） ： 56 － 60． （ in Chinese）
+31（ 3） ： 28 － 32．
+［12］ 原姣姣，王成章，陈虹霞，等． 近红外漫反射光谱法测定油茶籽含油量的研究［J］． 林产化学与工业，2011，
+
+第5 期
+
+周宏平 等： 基于高光谱成像的油茶籽含油率检测方法
+
+315
+
+YUAN Jiaojiao，WANG Chengzhang，CHEN Hongxia，et al． Determination of oil content of Camellia oleifera seeds by near
+infrared reflectance spectroscopy［J］． Chemistry and Industry of Forest Products，2011，
+31（ 3） ： 28 － 32． （ in Chinese）
+［13］ 郑涛，刘宁，孙红，等． 基于高光谱成像的马铃薯叶片叶绿素分布可视化研究［J / OL］． 农业机械学报，2017，48 （ 增
+刊） ： 153 － 159．
+ZHENG Tao，LIU Ning，SUN Hong，et al． Visualization of chlorophyll distribution of potato leaves based on hyperspectral
+imaging technology［J / OL］． Transactions of the Chinese Society for Agricultural Machinery，2017，48 （ Supp． ） ： 153 － 159．
+http： ∥www． j-csam． org / jcsam / ch / reader / view _ abstract． aspx？ file _ no = 2017S025＆flag = 1． DOI： 10． 6041 / j． issn． 10001298． 2017． S0． 025． （ in Chinese）
+2021，
+52（ 2） ： 211 － 217，
+274．
+［14］ 李红，张凯，陈超，等． 基于高光谱成像技术的生菜冠层含水率检测［J / OL］． 农业机械学报，
+LI Hong，ZHANG Kai，CHEN Chao，et al． Detection of moisture content in lettuce canopy based on hyperspectral imaging
+technique［J / OL］． Transactions of the Chinese Society for Agricultural Machinery，
+2021，
+52（ 2） ： 211 － 217，
+274． http： ∥www．
+j-csam． org / jcsam / ch / reader / view_abstract． aspx？ file_no = 20210219＆flag = 1． DOI： 10． 6041 / j． issn． 1000-1298． 2021． 02．
+019． （ in Chiense）
+［15］ 黄佳聪，阚欢，万晓军，等． 腾冲红花油茶果实成熟度及堆沤处理对油产量及其品质的影响［J］． 林业科学研究，
+2012，
+25（ 5） ： 612 － 615．
+HUANG Jiacong，KAN Huan，WAN Xiaojun，et al． Effects of fruit maturity and compost on oil yield and quality of camellia
+reticulate［J］． Forest Ｒesearch，2012，
+25（ 5） ： 612 － 615． （ in Chinese）
+［16］ WU D，SUN D W． Advanced applications of hyperspectral imaging technology for food quality and safety analysis and
+assessment： a review—Part I： fundamentals［J］． Innovative Food Science ＆ Emerging Technologies，2013，
+19（ 2） ： 1 － 14．
+［17］ AＲAUJO M C U，SALDANHA T C B，GALVO Ｒ K H，et al． The successive projections algorithm for variable selection in
+spectroscopic multicomponent analysis［J］． Chemometrics ＆ Intelligent Laboratory Systems，2001，
+57（ 2） ： 65 － 73．
+［18］ LI H，LIANG Y，XU Q，et al． Key wavelengths screening using competitive adaptive reweighted sampling method for
+multivariate calibration［J］． Analytica Chimica Acta，2009，
+648（ 1） ： 77 － 84．
+［19］ ZAVALA A E M，DIHAＲCE E Ｒ V，AGUIＲＲE A H． Particle evolutionary swarm for design reliability optimization：
+evolutionary multi-criterion optimization［C］∥Proceedings of Third International Conference，EMO 2005，Guanajuato，2005．
+［20］ STUTZLE M D T． Ant colony optimization［M］． Chicago： Bradford Company，2004．
+［21］ BANGEＲT P． Optimization： simulated annealing［M］． Berlin： Springer Berlin Heidelberg，2012．
+［22］ YUN Y H，LI H D，LESLIE Ｒ E W，et al． An efficient method of wavelength interval selection based on random frog for
+multivariate spectral calibration［J］． Spectrochimica Acta Part A： Molecular and Biomolecular Spectroscopy，2013，111：
+31 － 36．
+［23］ 龙燕，连雅茹，马敏娟，等． 基于高光谱技术和改进型区间随机蛙跳算法的番茄硬度检测［J］． 农业工程学报，2019，
+35（ 13） ： 270 － 276．
+LONG Yan，LIAN Yaru，MA Minjuan，et al． Detection of tomato hardness based on hyperspectral technology and modified
+interval random frog algorithm［J］． Transactions of the CSAE，2019，
+35（ 13） ： 270 － 276． （ in Chinese）
+［24］ LEAＲDI Ｒ，GONZALEZ A L E． Genetic algorithms applied to feature selection in PLS regression： how and when to use them
+［J］． Chemometrics ＆ Intelligent Laboratory Systems，1998，
+41（ 2） ： 195 － 207．
+［25］ WOLD S，SJOSTＲOM M，EＲIKSSON L． PLS-regression： a basic tool of chemometrics［J］． Chemometrics ＆ Intelligent
+Laboratory Systems，2001，
+58（ 2） ： 109 － 130．
+［26］ ELMASＲY G，SUN D W，ALLEN P． Near-infrared hyperspectral imaging for predicting colour，pH and tenderness of fresh
+beef［J］． Journal of Food Engineering，2012，
+110（ 1） ： 127 － 140．
+2020，
+51
+［27］ 邵园园，王永贤，玄冠涛，等． 基于高光谱成像的肥城桃品质可视化分析与成熟度检测［J / OL］． 农业机械学报，
+（ 8） ： 344 － 350．
+SHAO Yuanyuan，WANG Yongxian，XUAN Guantao，et al． Visual detection of SSC and firmness and maturity prediction for
+Feicheng peach by using hyperspectral imaging［J / OL］． Transactions of the Chinese Society for Agricultural Machinery，
+2020，
+51（ 8） ： 344 － 350． http： ∥www． j-csam． org / jcsam / ch / reader / view_abstract． aspx？ file_no = 20200838＆flag = 1． DOI： 10．
+6041 / j． issn． 1000-1298． 2020． 08． 038． （ in Chiense）
+2019，
+50（ 12） ：
+［28］ 王伟，姜洪喆，贾贝贝，等． 基于高光谱成像的生鲜鸡肉糜中大豆蛋白含量检测［J / OL］． 农业机械学报，
+357 － 364．
+WANG Wei，JIANG Hongzhe，JIA Beibei，et al． Detection of soybean protein content in fresh minced chicken meat using
+hyperspectral imaging［J / OL］． Transactions of the Chinese Society for Agricultural Machinery，
+2019，
+50（ 12） ： 357 － 364． http：
+∥www． j-csam． org / jcsam / ch / reader / view_abstract． aspx？ file_no = 20191241＆flag = 1． DOI： 10． 6041 / j． issn． 1000-1298．
+2019． 12． 041． （ in Chiense）
+［29］ WU D，SUN D W，HE Y． Application of long-wave near infrared hyperspectral imaging for measurement of color distribution in
+salmon fillet［J］． Innovative Food Science ＆ Emerging Technologies，2012，
+16： 361 － 372．
+［30］ HOUＲANT P，BAETEN V，MOＲALES M T，et al． Oil and fat classification by selected bands of near-infrared spectroscopy
+［J］． Applied Spectroscopy，2000，
+54（ 8） ： 1168 － 1174．
+［31］ XU Q，LIANG Y． Monte Carlo cross validation［J］． Chemometrics and Intelligent Laboratory Systems，2001，
+56（ 1） ： 1 － 11．
+［32］ 李洪东，曹东升，许青松，等． 蒙特卡罗交互检验在检测近红外数据奇异样本中的应用［C］∥全国第二届近红外光谱
+学术会议，长沙，2008．
+LI Hongdong，CAO Dongsheng，XU Qingsong，et al． Outlier detection of near-infrared spectroscopy using Monte Carlo method
+［C］∥The Second Asian NIＲ Symposium，Changsha，2008． （ in Chinese）
+［33］ 展晓日，朱向荣，史新元，等． SPXY 样本划分法及蒙特卡罗交叉验证结合近红外光谱用于橘叶中橙皮苷的含量测定
+［J］． 光谱学与光谱分析，2009，
+29（ 4） ： 964 － 968．
+ZHAN Xiaori， ZHU Xiangrong， SHI Xinyuan， et al． Determination of hesperidin in tangerine leaf by near-infrared
+spectroscopy with SPXY algorithm for sample subset partitioning and Monte Carlo cross validation［J］． Spectroscopy and
+Spectral，2009，
+29（ 4） ： 964 － 968． （ in Chinese）
+
+
