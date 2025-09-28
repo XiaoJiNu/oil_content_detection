@@ -14,15 +14,20 @@
    source .venv/bin/activate
    pip install numpy pandas scikit-learn
    ```
-2. **运行复现流程（使用模拟数据）**
+2. **生成模拟数据（如需重新随机化）**
+   ```bash
+   python scripts/generate_simulated_set_II.py
+   ```
+   脚本会在 `data/processed/set_II/` 下生成新的高光谱立方体与 ROI 均值光谱文件。
+3. **运行复现流程（使用模拟数据）**
    ```bash
    PYTHONPATH=src MKL_THREADING_LAYER=SEQUENTIAL \
    OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 MKL_NUM_THREADS=1 NUMEXPR_NUM_THREADS=1 \
    python scripts/run_best_method.py
    ```
    输出包括：遗传算法筛选出的波长列表、训练/测试集 R² 与 RMSE 指标。
-3. **更换为真实数据**
-   - 将实测光谱整理为与 `data/processed/simulated_spectral_set_II.csv` 相同的列格式（`sample_id`、`wl_<波长>`、`oil_content`）。
+4. **更换为真实数据**
+   - 将实测光谱整理为与 `data/processed/set_II/mean_spectra.csv` 相同的列格式（`sample_id`、`wl_<波长>`、`oil_content`）。
    - 覆盖该文件或调整 `RunConfig.data_path` 指向新数据后重新运行脚本。
 
 ## 仓库结构
@@ -30,7 +35,8 @@
   - `feature_selection/ga_selector.py`：遗传算法波段筛选
   - `models/plsr_best.py`：GA + PLSR 管线
 - `scripts/run_best_method.py`：一键执行最佳方案
-- `data/processed/simulated_spectral_set_II.csv`：模拟光谱数据集
+- `data/processed/set_II/mean_spectra.csv`：模拟光谱数据（ROI 均值光谱）
+- `data/processed/set_II/simulated_set_II_cube.npz`：模拟高光谱立方体与 ROI 掩膜
 - `docs/reference_docs/`：需求文档、复现计划与实验记录
 - `AGENTS.md`：贡献者指南
 

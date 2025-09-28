@@ -1,6 +1,6 @@
 """Pipeline to run GA-selected PLSR on Spectral Set II data.
 
-Uses the simulated dataset in ``data/processed/simulated_spectral_set_II.csv``.
+Uses the simulated dataset in ``data/processed/set_II/mean_spectra.csv``.
 """
 from __future__ import annotations
 
@@ -26,7 +26,7 @@ from oil_content_detection.feature_selection.ga_selector import GAConfig, Geneti
 
 @dataclass
 class RunConfig:
-    data_path: Path = Path("data/processed/simulated_spectral_set_II.csv")
+    data_path: Path = Path("data/processed/set_II/mean_spectra.csv")
     test_size: float = 34 / 102
     random_state: int = 2024
     ga_generations: int = 10
