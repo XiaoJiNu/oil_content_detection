@@ -28,6 +28,7 @@ class GAConfig:
     random_state: Optional[int] = None
     cv_splits: int = 3
     patience: int = 4
+    verbose: bool = False  # If True, print progress during training
 
 
 class GeneticAlgorithmSelector:
@@ -38,6 +39,7 @@ class GeneticAlgorithmSelector:
         self._rng = np.random.default_rng(self.config.random_state)
         self._best_mask: Optional[np.ndarray] = None
         self._best_score: float = float("-inf")
+        self._history: List[dict] = []  # Training history
 
     @staticmethod
     def _ensure_bounds(mask: np.ndarray, cfg: GAConfig, rng: np.random.Generator) -> np.ndarray:
@@ -109,6 +111,10 @@ class GeneticAlgorithmSelector:
         self._best_mask = population[best_idx].copy()
         self._best_score = fitness[best_idx]
 
+        # Record initial generation
+        self._history = []
+        self._record_generation(0, fitness, self._best_score, population[best_idx].sum())
+
         no_improve = 0
         for gen in range(self.config.generations):
             elite_indices = np.argsort(fitness)[-self.config.elite_count :]
@@ -129,6 +135,8 @@ class GeneticAlgorithmSelector:
 
             gen_best_idx = np.argmax(fitness)
             gen_best_score = fitness[gen_best_idx]
+            gen_best_features = population[gen_best_idx].sum()
+
             if gen_best_score > self._best_score:
                 self._best_score = gen_best_score
                 self._best_mask = population[gen_best_idx].copy()
@@ -136,10 +144,34 @@ class GeneticAlgorithmSelector:
             else:
                 no_improve += 1
 
+            # Record generation history
+            self._record_generation(gen + 1, fitness, self._best_score, gen_best_features)
+
             if self.config.patience and no_improve >= self.config.patience:
+                if self.config.verbose:
+                    print(f"Early stopping at generation {gen + 1} (no improvement for {self.config.patience} generations)")
                 break
 
         return self
+
+    def _record_generation(self, gen: int, fitness: np.ndarray, best_score: float, best_features: int) -> None:
+        """Record generation statistics to history."""
+        history_entry = {
+            "generation": gen,
+            "best_score": best_score,
+            "mean_score": fitness.mean(),
+            "max_score": fitness.max(),
+            "min_score": fitness.min(),
+            "best_features": best_features,
+        }
+        self._history.append(history_entry)
+
+        if self.config.verbose:
+            print(
+                f"Gen {gen:3d}: best={best_score:.4f}, "
+                f"mean={fitness.mean():.4f}, "
+                f"features={best_features}"
+            )
 
     def get_support(self) -> np.ndarray:
         if self._best_mask is None:
@@ -154,6 +186,14 @@ class GeneticAlgorithmSelector:
 
     def best_score(self) -> float:
         return self._best_score
+
+    def history(self) -> List[dict]:
+        """Return training history.
+
+        Returns:
+            List of dictionaries containing generation statistics
+        """
+        return self._history
 
 
 def select_wavelengths(

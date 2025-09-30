@@ -47,7 +47,7 @@ def gaussian_profile(wavelengths: np.ndarray, center: float, width: float) -> np
     return np.exp(-0.5 * ((wavelengths - center) / width) ** 2)
 
 
-def simulate_roi_mask(rng: np.random.Generator, height: int, width: int) -> np.ndarray:
+def simulate_roi_mask(rng: "np.random.Generator", height: int, width: int) -> np.ndarray:
     yy, xx = np.mgrid[0:height, 0:width]
     cy = rng.uniform(height * 0.4, height * 0.6)
     cx = rng.uniform(width * 0.4, width * 0.6)
@@ -62,7 +62,7 @@ def simulate_roi_mask(rng: np.random.Generator, height: int, width: int) -> np.n
     return mask
 
 
-def build_base_spectrum(rng: np.random.Generator, wavelengths: np.ndarray) -> np.ndarray:
+def build_base_spectrum(rng: "np.random.Generator", wavelengths: np.ndarray) -> np.ndarray:
     baseline = 0.35 + rng.uniform(-0.03, 0.03)
     spec = np.full_like(wavelengths, baseline, dtype=np.float32)
 
@@ -82,7 +82,7 @@ def build_base_spectrum(rng: np.random.Generator, wavelengths: np.ndarray) -> np
     return np.clip(spec, 0.05, 0.95)
 
 
-def derive_oil_content(mean_spectrum: np.ndarray, wavelengths: np.ndarray, rng: np.random.Generator) -> float:
+def derive_oil_content(mean_spectrum: np.ndarray, wavelengths: np.ndarray, rng: "np.random.Generator") -> float:
     # Use absorption around 1200-1500 nm to drive oil content.
     idx_band = (wavelengths >= 1180) & (wavelengths <= 1530)
     absorption_index = 1.0 - mean_spectrum[idx_band].mean()
@@ -92,7 +92,7 @@ def derive_oil_content(mean_spectrum: np.ndarray, wavelengths: np.ndarray, rng: 
 
 
 def simulate_sample(
-    rng: np.random.Generator,
+    rng: "np.random.Generator",
     cfg: SimulationConfig,
 ) -> Tuple[np.ndarray, np.ndarray, float, np.ndarray]:
     mask = simulate_roi_mask(rng, cfg.height, cfg.width)

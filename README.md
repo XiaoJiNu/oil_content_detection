@@ -8,27 +8,61 @@
 - 为未来接入真实设备与实验数据提供可扩展的工程框架与文档。
 
 ## 快速开始
-1. **准备环境**（示例命令）
+1. **准备环境**
    ```bash
    python -m venv .venv
    source .venv/bin/activate
-   pip install numpy pandas scikit-learn
+   pip install -r requirements.txt
    ```
+
 2. **生成模拟数据（如需重新随机化）**
    ```bash
    python scripts/generate_simulated_set_II.py
    ```
    脚本会在 `data/processed/set_II/` 下生成新的高光谱立方体与 ROI 均值光谱文件。
+
 3. **运行复现流程（使用模拟数据）**
    ```bash
-   PYTHONPATH=src MKL_THREADING_LAYER=SEQUENTIAL \
-   OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 MKL_NUM_THREADS=1 NUMEXPR_NUM_THREADS=1 \
+   # 基础运行
    python scripts/run_best_method.py
+
+   # 显示 GA 训练过程
+   python scripts/run_best_method.py --verbose
+
+   # 保存结果到指定目录
+   python scripts/run_best_method.py --output-dir results/experiment_01
+
+   # 查看所有参数选项
+   python scripts/run_best_method.py --help
    ```
    输出包括：遗传算法筛选出的波长列表、训练/测试集 R² 与 RMSE 指标。
-4. **更换为真实数据**
+
+4. **可视化结果**
+   ```bash
+   # 生成所有可视化图表（GA历史、光谱选择、预测结果）
+   python scripts/visualize_results.py results/experiment_01
+
+   # 可视化油茶籽含油分布图像（论文中的空间分布图）
+   python scripts/visualize_oil_distribution.py results/experiment_01 --mode summary
+
+   # 可视化特定样本的详细含油分布
+   python scripts/visualize_oil_distribution.py results/experiment_01 --mode single --sample-indices 0 1 2
+
+   # 指定输出目录
+   python scripts/visualize_results.py results/experiment_01 --output-dir figures/
+   ```
+
+5. **运行测试**
+   ```bash
+   pytest -v
+   ```
+
+6. **更换为真实数据**
    - 将实测光谱整理为与 `data/processed/set_II/mean_spectra.csv` 相同的列格式（`sample_id`、`wl_<波长>`、`oil_content`）。
-   - 覆盖该文件或调整 `RunConfig.data_path` 指向新数据后重新运行脚本。
+   - 使用 `--data` 参数指向新数据：
+     ```bash
+     python scripts/run_best_method.py --data path/to/your/data.csv
+     ```
 
 ## 仓库结构
 - `src/oil_content_detection/`：核心源码
