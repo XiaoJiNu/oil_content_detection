@@ -46,6 +46,8 @@ htmlcov/
 data/processed/**/*.npz
 data/processed/**/*.npy
 data/processed/**/*.h5
+data
+tests
 *.npz
 *.npy
 *.h5
