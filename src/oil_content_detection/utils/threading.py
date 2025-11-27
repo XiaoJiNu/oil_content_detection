@@ -16,11 +16,15 @@ def setup_single_thread() -> None:
     Should be called before importing numpy, sklearn, or other numerical libraries
     that use BLAS/LAPACK backends.
     """
-    os.environ.setdefault("OMP_NUM_THREADS", "1")
-    os.environ.setdefault("OPENBLAS_NUM_THREADS", "1")
-    os.environ.setdefault("MKL_NUM_THREADS", "1")
-    os.environ.setdefault("NUMEXPR_NUM_THREADS", "1")
-    os.environ.setdefault("MKL_THREADING_LAYER", "SEQUENTIAL")
+    os.environ["OMP_NUM_THREADS"] = "1"
+    os.environ["OMP_THREAD_LIMIT"] = "1"
+    os.environ["OPENBLAS_NUM_THREADS"] = "1"
+    os.environ["MKL_NUM_THREADS"] = "1"
+    os.environ["NUMEXPR_NUM_THREADS"] = "1"
+    os.environ["MKL_THREADING_LAYER"] = "SEQUENTIAL"
+    os.environ["KMP_AFFINITY"] = "disabled"
+    os.environ["KMP_BLOCKTIME"] = "0"
+    os.environ["KMP_INIT_AT_FORK"] = "FALSE"
 
 
 __all__ = ["setup_single_thread"]
