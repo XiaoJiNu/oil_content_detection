@@ -4,7 +4,7 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Dict, Iterable, List, Optional, Tuple
+from typing import Dict, Iterable, List, Optional, Sequence, Tuple
 
 import numpy as np
 import pandas as pd
@@ -46,6 +46,18 @@ class AggregationConfig:
     include_stats: tuple[str, ...] = ("mean", "median", "trimmed_mean", "std")
 
 
+@dataclass
+class SampleInfo:
+    sample_id_raw: str
+    sample_id: str
+    sample_dir: Path
+    distill_ml: float
+    weight_g: float
+    oil_ml_per_gram: float
+    oil_ml_per_100g: float
+    hdr_path: Path
+
+
 def normalize_sample_id(raw: str) -> str:
     cleaned = str(raw).strip()
     cleaned = cleaned.replace("-", "_").replace("—", "_").replace("－", "_")
@@ -63,10 +75,14 @@ def _first_existing_column(df: pd.DataFrame, candidates: Iterable[str]) -> str:
 
 def load_huajiao_labels(excel_path: Path, config: LabelConfig | None = None) -> pd.DataFrame:
     config = config or LabelConfig()
+    suffix = excel_path.suffix.lower()
+    engine = "openpyxl" if suffix in {".xlsx", ".xlsm"} else "xlrd"
     try:
-        df = pd.read_excel(excel_path, engine="xlrd", sheet_name=config.sheet_name)
+        df = pd.read_excel(excel_path, engine=engine, sheet_name=config.sheet_name)
     except ImportError as exc:
-        raise ImportError("xlrd is required to read .xls files; please install the requirement") from exc
+        raise ImportError(f"{engine} is required to read {excel_path}; please install it") from exc
+    except Exception as exc:
+        df = pd.read_excel(excel_path, sheet_name=config.sheet_name)
 
     id_col = _first_existing_column(df, config.sample_id_cols)
     distill_col = _first_existing_column(df, config.distill_volume_cols)
@@ -225,86 +241,177 @@ def _column_name(wavelength: float, stat: str, primary_stat: str) -> str:
     return f"{base}_{stat}"
 
 
-def build_huajiao_dataset(
-    raw_root: Path,
-    excel_path: Path,
-    output_dir: Path = Path("data/processed/huajiao"),
-    label_config: LabelConfig | None = None,
-    roi_config: HuajiaoROIConfig | None = None,
-    agg_config: AggregationConfig | None = None,
+def _find_sample_image(sample_dir: Path, sample_id_raw: str, sample_id: str) -> Optional[Path]:
+    """Find a representative image for ROI overlay."""
+    candidates = [
+        sample_dir / f"{sample_id_raw}.png",
+        sample_dir / f"{sample_id}.png",
+        sample_dir / f"{sample_id_raw}.jpg",
+        sample_dir / f"{sample_id}.jpg",
+    ]
+    for cand in candidates:
+        if cand.exists():
+            return cand
+
+    for folder in (sample_dir, sample_dir / "capture"):
+        pngs = sorted(folder.glob("*.png"))
+        if pngs:
+            return pngs[0]
+    return None
+
+
+def _save_roi_visualization(
+    cube: np.ndarray,
+    mask: np.ndarray,
+    sample_dir: Path,
+    sample_id_raw: str,
+    sample_id: str,
+    roi_dir: Optional[Path],
+) -> Optional[Path]:
+    """Save ROI overlay image to roi_dir; returns saved path or None."""
+    if roi_dir is None:
+        return None
+
+    roi_dir.mkdir(parents=True, exist_ok=True)
+    image_path = _find_sample_image(sample_dir, sample_id_raw, sample_id)
+
+    try:
+        import matplotlib.pyplot as plt
+    except Exception as exc:  # pragma: no cover - visualization fallback
+        logger.warning("Matplotlib unavailable for ROI visualization: %s", exc)
+        return None
+
+    overlay_base: np.ndarray
+    try:
+        if image_path and image_path.exists():
+            try:
+                from PIL import Image
+            except Exception:
+                Image = None  # type: ignore
+
+            if "Image" in locals() and Image is not None:
+                img = Image.open(image_path).convert("RGB")
+                img_arr = np.asarray(img, dtype=float) / 255.0
+                mask_arr = mask
+                if mask.shape[0] != img_arr.shape[0] or mask.shape[1] != img_arr.shape[1]:
+                    mask_img = Image.fromarray(mask.astype(np.uint8) * 255)
+                    mask_img = mask_img.resize((img_arr.shape[1], img_arr.shape[0]), resample=Image.NEAREST)
+                    mask_arr = np.asarray(mask_img) > 0
+                overlay_base = img_arr
+                mask_use = mask_arr
+            else:
+                raise ImportError("Pillow not available; fallback to cube intensity")
+        else:
+            raise FileNotFoundError("Sample image not found; fallback to cube intensity")
+    except Exception as exc:
+        logger.debug("ROI overlay using cube intensity due to: %s", exc)
+        intensity = np.nanmean(cube, axis=2)
+        intensity = np.nan_to_num(intensity, nan=0.0)
+        if intensity.max() > intensity.min():
+            norm = (intensity - intensity.min()) / (intensity.max() - intensity.min())
+        else:
+            norm = intensity
+        overlay_base = np.stack([norm] * 3, axis=-1)
+        mask_use = mask
+
+    overlay = overlay_base.copy()
+    alpha = 0.6
+    overlay[mask_use] = overlay[mask_use] * (1 - alpha) + np.array([1.0, 0.0, 0.0]) * alpha
+
+    out_path = roi_dir / f"{sample_id}_roi.png"
+    plt.imsave(out_path, np.clip(overlay, 0.0, 1.0))
+    return out_path
+
+
+def _process_sample(
+    sample: SampleInfo,
+    roi_cfg: HuajiaoROIConfig,
+    agg_cfg: AggregationConfig,
+    roi_visualization_dir: Optional[Path],
+) -> tuple[Dict[str, float], Dict[str, float]]:
+    cube, header = load_envi_cube(sample.hdr_path)
+    wavelengths = header.wavelengths or list(range(cube.shape[2]))
+
+    mask, mask_info = create_huajiao_mask(cube, wavelengths, roi_cfg)
+    cleaned_mask, clean_info = clean_mask_extremes(cube, mask, roi_cfg)
+    if cleaned_mask.sum() == 0:
+        raise ValueError(f"Sample {sample.sample_id} has zero valid pixels after cleaning")
+
+    stats = _aggregate_spectra(cube, cleaned_mask, trim_fraction=agg_cfg.trim_fraction)
+
+    feature_row: Dict[str, float] = {
+        "sample_id": sample.sample_id,
+        "sample_id_raw": sample.sample_id_raw,
+        "distill_ml": float(sample.distill_ml),
+        "weight_g": float(sample.weight_g),
+        "oil_ml_per_gram": float(sample.oil_ml_per_gram),
+        "oil_ml_per_100g": float(sample.oil_ml_per_100g),
+        "pixel_count": int(mask.sum()),
+        "valid_pixel_count": int(cleaned_mask.sum()),
+        "coverage_ratio": cleaned_mask.sum() / float(cube.shape[0] * cube.shape[1]),
+    }
+
+    for stat_name in agg_cfg.include_stats:
+        if stat_name not in stats:
+            continue
+        values = stats[stat_name]
+        for idx, wl in enumerate(wavelengths):
+            col = _column_name(wl, stat_name, agg_cfg.primary_stat)
+            feature_row[col] = float(values[idx])
+
+    roi_path = _save_roi_visualization(
+        cube,
+        cleaned_mask,
+        sample.sample_dir,
+        sample.sample_id_raw,
+        sample.sample_id,
+        roi_visualization_dir,
+    )
+
+    meta_row = {
+        "sample_id": sample.sample_id,
+        "sample_id_raw": sample.sample_id_raw,
+        "sample_dir": str(sample.sample_dir),
+        "hdr_path": str(sample.hdr_path),
+        "dat_path": str(header.dat_path) if header.dat_path else str(sample.hdr_path.with_suffix(".dat")),
+        "distill_ml": float(sample.distill_ml),
+        "weight_g": float(sample.weight_g),
+        "oil_ml_per_gram": float(sample.oil_ml_per_gram),
+        "oil_ml_per_100g": float(sample.oil_ml_per_100g),
+        "pixel_count": int(mask.sum()),
+        "valid_pixel_count": int(cleaned_mask.sum()),
+        "coverage_ratio": cleaned_mask.sum() / float(cube.shape[0] * cube.shape[1]),
+        "ratio_threshold": mask_info["ratio_threshold"],
+        "intensity_threshold": mask_info["intensity_threshold"],
+        "clip_low": clean_info["low"],
+        "clip_high": clean_info["high"],
+        "wavelength_count": len(wavelengths),
+        "nir_band_index": mask_info["nir_band_index"],
+        "red_band_index": mask_info["red_band_index"],
+        "roi_visualization": str(roi_path) if roi_path else "",
+    }
+    return feature_row, meta_row
+
+
+def _build_dataset_from_samples(
+    samples: Sequence[SampleInfo],
+    output_dir: Path,
+    roi_config: HuajiaoROIConfig,
+    agg_config: AggregationConfig,
     save: bool = True,
+    roi_visualization_dir: Optional[Path] = None,
 ) -> tuple[pd.DataFrame, pd.DataFrame]:
-    """从原始 HDR/DAT + 标签构建特征表与元数据表。"""
-    label_cfg = label_config or LabelConfig()
-    roi_cfg = roi_config or HuajiaoROIConfig()
-    agg_cfg = agg_config or AggregationConfig()
-
-    labels_df = load_huajiao_labels(excel_path, label_cfg)
-    cube_map = discover_huajiao_cubes(raw_root)
-
     spectra_rows: List[Dict[str, float]] = []
     meta_rows: List[Dict[str, float]] = []
 
-    for _, row in labels_df.iterrows():
-        sample_id = row["sample_id"]
-        if sample_id not in cube_map:
-            logger.warning("No HDR/DAT found for sample_id=%s", sample_id)
+    for sample in samples:
+        try:
+            feature_row, meta_row = _process_sample(sample, roi_config, agg_config, roi_visualization_dir)
+        except Exception as exc:
+            logger.warning("Skipping sample %s due to error: %s", sample.sample_id, exc)
             continue
-        hdr_path = cube_map[sample_id]
-        cube, header = load_envi_cube(hdr_path)
-        wavelengths = header.wavelengths or list(range(cube.shape[2]))
-
-        mask, mask_info = create_huajiao_mask(cube, wavelengths, roi_cfg)
-        cleaned_mask, clean_info = clean_mask_extremes(cube, mask, roi_cfg)
-        if cleaned_mask.sum() == 0:
-            logger.warning("Sample %s has zero valid pixels after cleaning", sample_id)
-            continue
-
-        stats = _aggregate_spectra(cube, cleaned_mask, trim_fraction=agg_cfg.trim_fraction)
-
-        feature_row: Dict[str, float] = {
-            "sample_id": sample_id,
-            "distill_ml": float(row["distill_ml"]),
-            "weight_g": float(row["weight_g"]),
-            "oil_ml_per_gram": float(row["oil_ml_per_gram"]),
-            "oil_ml_per_100g": float(row["oil_ml_per_100g"]),
-            "pixel_count": int(mask.sum()),
-            "valid_pixel_count": int(cleaned_mask.sum()),
-            "coverage_ratio": cleaned_mask.sum() / float(cube.shape[0] * cube.shape[1]),
-        }
-
-        for stat_name in agg_cfg.include_stats:
-            if stat_name not in stats:
-                continue
-            values = stats[stat_name]
-            for idx, wl in enumerate(wavelengths):
-                col = _column_name(wl, stat_name, agg_cfg.primary_stat)
-                feature_row[col] = float(values[idx])
-
         spectra_rows.append(feature_row)
-
-        meta_rows.append(
-            {
-                "sample_id": sample_id,
-                "sample_id_raw": row["sample_id_raw"],
-                "hdr_path": str(hdr_path),
-                "dat_path": str(header.dat_path) if header.dat_path else str(hdr_path.with_suffix(".dat")),
-                "distill_ml": float(row["distill_ml"]),
-                "weight_g": float(row["weight_g"]),
-                "oil_ml_per_gram": float(row["oil_ml_per_gram"]),
-                "oil_ml_per_100g": float(row["oil_ml_per_100g"]),
-                "pixel_count": int(mask.sum()),
-                "valid_pixel_count": int(cleaned_mask.sum()),
-                "coverage_ratio": cleaned_mask.sum() / float(cube.shape[0] * cube.shape[1]),
-                "ratio_threshold": mask_info["ratio_threshold"],
-                "intensity_threshold": mask_info["intensity_threshold"],
-                "clip_low": clean_info["low"],
-                "clip_high": clean_info["high"],
-                "wavelength_count": len(wavelengths),
-                "nir_band_index": mask_info["nir_band_index"],
-                "red_band_index": mask_info["red_band_index"],
-            }
-        )
+        meta_rows.append(meta_row)
 
     spectra_df = pd.DataFrame(spectra_rows)
     metadata_df = pd.DataFrame(meta_rows)
@@ -316,6 +423,125 @@ def build_huajiao_dataset(
 
     logger.info("Built dataset: %d samples with spectra, %d metadata rows", len(spectra_df), len(metadata_df))
     return spectra_df, metadata_df
+
+
+def build_huajiao_dataset(
+    raw_root: Path,
+    excel_path: Path,
+    output_dir: Path = Path("data/processed/huajiao"),
+    label_config: LabelConfig | None = None,
+    roi_config: HuajiaoROIConfig | None = None,
+    agg_config: AggregationConfig | None = None,
+    save: bool = True,
+    roi_visualization_dir: Optional[Path] = None,
+) -> tuple[pd.DataFrame, pd.DataFrame]:
+    """从原始 HDR/DAT + 标签构建特征表与元数据表。"""
+    label_cfg = label_config or LabelConfig()
+    roi_cfg = roi_config or HuajiaoROIConfig()
+    agg_cfg = agg_config or AggregationConfig()
+
+    labels_df = load_huajiao_labels(excel_path, label_cfg)
+    cube_map = discover_huajiao_cubes(raw_root)
+
+    samples: List[SampleInfo] = []
+    for _, row in labels_df.iterrows():
+        sample_id = row["sample_id"]
+        if sample_id not in cube_map:
+            logger.warning("No HDR/DAT found for sample_id=%s", sample_id)
+            continue
+        hdr_path = cube_map[sample_id]
+        sample_dir = hdr_path.parent.parent
+        samples.append(
+            SampleInfo(
+                sample_id_raw=row["sample_id_raw"],
+                sample_id=sample_id,
+                sample_dir=sample_dir,
+                distill_ml=float(row["distill_ml"]),
+                weight_g=float(row["weight_g"]),
+                oil_ml_per_gram=float(row["oil_ml_per_gram"]),
+                oil_ml_per_100g=float(row["oil_ml_per_100g"]),
+                hdr_path=hdr_path,
+            )
+        )
+
+    return _build_dataset_from_samples(
+        samples,
+        output_dir,
+        roi_cfg,
+        agg_cfg,
+        save=save,
+        roi_visualization_dir=roi_visualization_dir,
+    )
+
+
+def build_huajiao_dataset_from_split(
+    split_path: Path,
+    output_dir: Path,
+    roi_config: HuajiaoROIConfig | None = None,
+    agg_config: AggregationConfig | None = None,
+    save: bool = True,
+    roi_visualization_dir: Optional[Path] = None,
+) -> tuple[pd.DataFrame, pd.DataFrame]:
+    """基于 train/val txt 清单构建特征表。"""
+    roi_cfg = roi_config or HuajiaoROIConfig()
+    agg_cfg = agg_config or AggregationConfig()
+
+    samples: List[SampleInfo] = []
+    split_path = Path(split_path)
+    if not split_path.exists():
+        raise FileNotFoundError(f"Split file not found: {split_path}")
+
+    lines = split_path.read_text().splitlines()
+    for line in lines:
+        stripped = line.strip()
+        if not stripped or stripped.startswith("#"):
+            continue
+        parts = stripped.split()
+        if len(parts) < 5:
+            logger.warning("Skip malformed line in %s: %s", split_path, line)
+            continue
+
+        sample_id_raw = parts[0]
+        try:
+            weight_g = float(parts[1])
+            distill_ml = float(parts[2])
+        except ValueError:
+            logger.warning("Skip line with non-numeric weight/distill: %s", line)
+            continue
+
+        sample_dir = Path(" ".join(parts[4:])) if len(parts) > 5 else Path(parts[4])
+        sample_id = normalize_sample_id(sample_id_raw)
+        hdr_path = sample_dir / "capture" / f"REFLECTANCE_{sample_id}.hdr"
+        if not hdr_path.exists():
+            logger.warning("HDR not found for %s at %s", sample_id, hdr_path)
+            continue
+        if weight_g <= 0:
+            logger.warning("Weight <= 0 for %s, skip", sample_id)
+            continue
+        oil_ml_per_gram = distill_ml / weight_g
+        oil_ml_per_100g = oil_ml_per_gram * 100
+
+        samples.append(
+            SampleInfo(
+                sample_id_raw=sample_id_raw,
+                sample_id=sample_id,
+                sample_dir=sample_dir,
+                distill_ml=distill_ml,
+                weight_g=weight_g,
+                oil_ml_per_gram=oil_ml_per_gram,
+                oil_ml_per_100g=oil_ml_per_100g,
+                hdr_path=hdr_path,
+            )
+        )
+
+    return _build_dataset_from_samples(
+        samples,
+        output_dir,
+        roi_cfg,
+        agg_cfg,
+        save=save,
+        roi_visualization_dir=roi_visualization_dir,
+    )
 
 
 def _save_with_fallback(df: pd.DataFrame, path: Path) -> None:

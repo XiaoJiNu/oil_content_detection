@@ -5,10 +5,13 @@ from oil_content_detection.pipelines.huajiao_dataset import (
     HuajiaoROIConfig,
     LabelConfig,
     build_huajiao_dataset,
+    build_huajiao_dataset_from_split,
     clean_mask_extremes,
     create_huajiao_mask,
     discover_huajiao_cubes,
     load_huajiao_labels,
+    normalize_sample_id,
+    SampleInfo,
 )
 
 __all__ = [
@@ -16,8 +19,11 @@ __all__ = [
     "HuajiaoROIConfig",
     "LabelConfig",
     "build_huajiao_dataset",
+    "build_huajiao_dataset_from_split",
     "clean_mask_extremes",
     "create_huajiao_mask",
     "discover_huajiao_cubes",
     "load_huajiao_labels",
+    "normalize_sample_id",
+    "SampleInfo",
 ]
