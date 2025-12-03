@@ -51,6 +51,7 @@ tests
 *.npz
 *.npy
 *.h5
+results
 
 # Logs and results
 *.log
