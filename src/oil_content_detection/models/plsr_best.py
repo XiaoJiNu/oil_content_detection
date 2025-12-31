@@ -10,6 +10,7 @@ from typing import List, Optional
 
 from oil_content_detection.utils import (
     get_logger,
+    rmse,
     save_model,
     save_results_json,
     save_wavelengths,
@@ -23,7 +24,7 @@ setup_single_thread()
 import numpy as np
 import pandas as pd
 from sklearn.cross_decomposition import PLSRegression
-from sklearn.metrics import mean_squared_error, r2_score
+from sklearn.metrics import r2_score
 from sklearn.model_selection import train_test_split
 
 from oil_content_detection.feature_selection.ga_selector import GAConfig, GeneticAlgorithmSelector
@@ -140,8 +141,8 @@ def train_plsr_best(config: RunConfig = RunConfig()) -> RunResult:
 
     train_r2 = r2_score(y_train, y_train_pred)
     test_r2 = r2_score(y_test, y_test_pred)
-    train_rmse = mean_squared_error(y_train, y_train_pred, squared=False)
-    test_rmse = mean_squared_error(y_test, y_test_pred, squared=False)
+    train_rmse = rmse(y_train, y_train_pred)
+    test_rmse = rmse(y_test, y_test_pred)
 
     logger.info(f"Train R²={train_r2:.4f}, RMSE={train_rmse:.3f}")
     logger.info(f"Test  R²={test_r2:.4f}, RMSE={test_rmse:.3f}")

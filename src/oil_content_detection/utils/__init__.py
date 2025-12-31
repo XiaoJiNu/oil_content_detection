@@ -7,6 +7,7 @@ from oil_content_detection.utils.io import (
     save_wavelengths,
 )
 from oil_content_detection.utils.logging import get_logger, setup_logger
+from oil_content_detection.utils.metrics import rmse
 from oil_content_detection.utils.threading import setup_single_thread
 from oil_content_detection.utils.validation import (
     DataValidationError,
@@ -26,4 +27,5 @@ __all__ = [
     "save_results_json",
     "save_wavelengths",
     "load_wavelengths",
+    "rmse",
 ]

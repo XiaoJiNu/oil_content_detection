@@ -111,10 +111,76 @@
    - 模型训练脚本自带留出集评估（默认 66% 训练 / 34% 测试），运行日志即为模型测试结果。
    - 运行单元测试验证代码功能：
      ```bash
-     pytest -q
+     # 推荐使用 conda 环境 /home/yr/anaconda3/envs/hj（numpy<2）
+     /home/yr/anaconda3/envs/hj/bin/python -m pytest -q
      # 或仅跑核心流水线测试
-     pytest -q tests/test_plsr_best.py
+     /home/yr/anaconda3/envs/hj/bin/python -m pytest -q tests/test_plsr_best.py
      ```
+
+## 总含油量预测（A+B对照，新增）
+
+当前最佳模型预测 `oil_ml_per_gram`（ml/g）。为避免推理时称重，新增“总含油量”两种预测方案并可对照评估：
+
+- **方案A 两阶段**：
+  1) 用 GA+PLSR（现有管线）预测 `oil_ml_per_gram_pred`；
+  2) 用 ROI 形态特征回归预测 `weight_g_pred`；
+  3) `oil_ml_total_pred_a = oil_ml_per_gram_pred * weight_g_pred`。
+- **方案B 直接预测**：
+  以 `distill_ml`（总含油量）为标签，直接用 PLSR 预测 `oil_ml_total_pred_b`，默认拼接“光谱 + 形态特征”。
+
+对应实现：
+
+- 重量回归器：`src/oil_content_detection/models/weight_regressor.py`
+- A+B对照管线：`src/oil_content_detection/pipelines/total_oil_pipeline.py`
+- 对照脚本：`scripts/compare_total_oil_methods.py`
+
+### 数据字段要求
+
+对照脚本读取 `huajiao_spectra.parquet`（或等价 DataFrame），需要包含：
+
+- 光谱列：`wl_<nm>`
+- 标签：`oil_ml_per_gram`、`weight_g`、`distill_ml`（可选；缺失时自动用 `oil_ml_per_gram*weight_g` 生成总量标签）
+- 形态列：`valid_pixel_count`、`coverage_ratio`
+
+### 运行对照
+
+```bash
+python scripts/compare_total_oil_methods.py \
+  --train data/processed/huajiao/train/huajiao_spectra.parquet \
+  --val data/processed/huajiao/val/huajiao_spectra.parquet \
+  --use-ga \
+  --output-dir results/total_oil_comparison
+```
+
+脚本会打印验证集上：
+
+- 方案A 总量指标：`total_a_val`（R²/RMSE/MAE/MAPE）
+- 方案B 总量指标：`total_b_val`
+- 中间子任务：`oil_per_gram_*`、`weight_*`
+
+若指定 `--output-dir`，还会额外保存逐样本预测表，格式参考 `results/stage3_ga_final/val_predictions.csv`：
+
+- `train_predictions_total_oil.csv`
+- `val_predictions_total_oil.csv`
+
+### 实际花椒数据对照结果
+
+基于当前 `data/labels/train.txt`（39样本）/`data/labels/val.txt`（10样本）构建的特征表，在 `/home/yr/anaconda3/envs/hj` 环境下运行：
+
+```bash
+python scripts/compare_total_oil_methods.py \
+  --train data/processed/huajiao/train/huajiao_spectra.parquet \
+  --val data/processed/huajiao/val/huajiao_spectra.parquet \
+  --use-ga \
+  --output-dir results/total_oil_comparison_real
+```
+
+验证集（总含油量）指标：
+
+- 方案A（两阶段）：R²=0.7820，RMSE=0.172442，MAE=0.096283
+- 方案B（直接预测）：R²=0.7834，RMSE=0.171891，MAE=0.119214
+
+完整结果见 `results/total_oil_comparison_real/results_20251212_135906.json`。
 
 ## 花椒数据完整实验流程（已完成）
 
@@ -608,7 +674,6 @@ plt.rcParams['axes.unicode_minus'] = False
 - 将模型训练、可视化等步骤拓展为 CLI/Notebook 形式，便于批量实验。
 - 引入自动化测试覆盖关键模块（特征选择、PLSR 拟合）。
 
-
 ● R²（R-squared，也叫决定系数或拟合优度）是衡量回归模型预测效果的核心指标。
 
   基本定义
@@ -617,12 +682,9 @@ plt.rcParams['axes.unicode_minus'] = False
 
   计算公式：
 
-
-
 $$
 R^2 = 1 - \frac{SS_{res}}{SS_{tot}} = 1 - \frac{\sum_{i=1}^{n}(y_i - \hat{y}_i)^2}{\sum_{i=1}^{n}(y_i - \bar{y})^2}
 $$
-
 
   其中：
 

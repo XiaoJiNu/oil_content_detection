@@ -1,11 +1,12 @@
 """Data validation utilities."""
 from __future__ import annotations
 
-from pathlib import Path
-from typing import List
+from typing import TYPE_CHECKING
 
 import numpy as np
-import pandas as pd
+
+if TYPE_CHECKING:
+    import pandas as pd
 
 
 class DataValidationError(ValueError):
@@ -14,7 +15,7 @@ class DataValidationError(ValueError):
     pass
 
 
-def validate_spectral_dataframe(df: pd.DataFrame) -> None:
+def validate_spectral_dataframe(df: "pd.DataFrame") -> None:
     """Validate that a DataFrame contains required spectral data columns.
 
     Args:
@@ -23,6 +24,17 @@ def validate_spectral_dataframe(df: pd.DataFrame) -> None:
     Raises:
         DataValidationError: If validation fails
     """
+    try:
+        import pandas as pd  # type: ignore
+    except Exception as exc:  # pragma: no cover
+        raise RuntimeError(
+            "validate_spectral_dataframe requires a working pandas installation. "
+            "Current environment cannot import pandas."
+        ) from exc
+
+    if not isinstance(df, pd.DataFrame):
+        raise DataValidationError(f"Expected pandas.DataFrame, got {type(df)}")
+
     if df.empty:
         raise DataValidationError("DataFrame is empty")
 

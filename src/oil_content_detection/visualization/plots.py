@@ -176,10 +176,11 @@ def plot_prediction_results(
     max_val = max(y_train.max(), y_train_pred.max())
     ax1.plot([min_val, max_val], [min_val, max_val], "r--", linewidth=2, label="Perfect Prediction")
 
-    from sklearn.metrics import mean_squared_error, r2_score
+    from sklearn.metrics import r2_score
+    from oil_content_detection.utils import rmse
 
     r2_train = r2_score(y_train, y_train_pred)
-    rmse_train = mean_squared_error(y_train, y_train_pred, squared=False)
+    rmse_train = rmse(y_train, y_train_pred)
 
     ax1.set_xlabel("Actual Oil Content (%)", fontsize=12)
     ax1.set_ylabel("Predicted Oil Content (%)", fontsize=12)
@@ -195,7 +196,7 @@ def plot_prediction_results(
     ax2.plot([min_val, max_val], [min_val, max_val], "r--", linewidth=2, label="Perfect Prediction")
 
     r2_test = r2_score(y_test, y_test_pred)
-    rmse_test = mean_squared_error(y_test, y_test_pred, squared=False)
+    rmse_test = rmse(y_test, y_test_pred)
 
     ax2.set_xlabel("Actual Oil Content (%)", fontsize=12)
     ax2.set_ylabel("Predicted Oil Content (%)", fontsize=12)

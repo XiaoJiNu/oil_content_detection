@@ -22,7 +22,7 @@ logger = get_logger(__name__)
 class LabelConfig:
     sample_id_cols: tuple[str, ...] = ("高光谱图件编号", "图件编号", "编号", "样本编号")
     distill_volume_cols: tuple[str, ...] = ("蒸馏量（初）ml", "蒸馏量初ml", "蒸馏量", "蒸馏量_ml")
-    weight_cols: tuple[str, ...] = ("重量", "重量(g)", "重量g", "样品重量")
+    weight_cols: tuple[str, ...] = ("重量", "重量(g)", "重量（g）", "重量g", "样品重量")
     sheet_name: Optional[str] = None
 
 
@@ -443,7 +443,17 @@ def _process_sample(
                 if mask_img.size != (cube.shape[1], cube.shape[0]):
                     mask_img = mask_img.resize((cube.shape[1], cube.shape[0]), resample=Image.NEAREST)
                 mask = (np.asarray(mask_img) > 0).astype(bool)
-                mask_info["mask_source"] = "pre_generated"
+                area_ratio = mask.sum() / float(mask.size)
+                if mask.sum() < roi_cfg.hsv_min_area or area_ratio < roi_cfg.hsv_min_area_ratio:
+                    logger.warning(
+                        "Pre-generated mask too small for %s (pixels=%d, ratio=%.4f), falling back to HSV/spectral",
+                        sample.sample_id,
+                        mask.sum(),
+                        area_ratio,
+                    )
+                    mask = None
+                else:
+                    mask_info["mask_source"] = "pre_generated"
 
     if roi_cfg.use_hsv and mask is None:
         if image_path:

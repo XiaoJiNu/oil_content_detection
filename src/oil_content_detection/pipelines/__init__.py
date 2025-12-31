@@ -13,6 +13,13 @@ from oil_content_detection.pipelines.huajiao_dataset import (
     normalize_sample_id,
     SampleInfo,
 )
+from oil_content_detection.pipelines.total_oil_pipeline import (
+    TotalOilExperimentConfig,
+    TotalOilExperimentResult,
+    build_shape_feature_matrix,
+    run_total_oil_experiment,
+    run_total_oil_experiment_with_predictions,
+)
 
 __all__ = [
     "AggregationConfig",
@@ -26,4 +33,9 @@ __all__ = [
     "load_huajiao_labels",
     "normalize_sample_id",
     "SampleInfo",
+    "TotalOilExperimentConfig",
+    "TotalOilExperimentResult",
+    "build_shape_feature_matrix",
+    "run_total_oil_experiment",
+    "run_total_oil_experiment_with_predictions",
 ]
