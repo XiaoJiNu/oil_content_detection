@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<annotations>
+  <version>1.1</version>
+  <meta>
+    <task>
+      <id>1897432</id>
+      <name>pepper_segment_20251231</name>
+      <size>197</size>
+      <mode>annotation</mode>
+      <overlap>0</overlap>
+      <bugtracker></bugtracker>
+      <created>2025-12-31 02:27:57.534966+00:00</created>
+      <updated>2025-12-31 06:09:58.702945+00:00</updated>
+      <subset>default</subset>
+      <start_frame>0</start_frame>
+      <stop_frame>196</stop_frame>
+      <frame_filter></frame_filter>
+      <segments>
+        <segment>
+          <id>3436495</id>

@@ -444,12 +444,10 @@ def _process_sample(
                     mask_img = mask_img.resize((cube.shape[1], cube.shape[0]), resample=Image.NEAREST)
                 mask = (np.asarray(mask_img) > 0).astype(bool)
                 area_ratio = mask.sum() / float(mask.size)
-                if mask.sum() < roi_cfg.hsv_min_area or area_ratio < roi_cfg.hsv_min_area_ratio:
+                if mask.sum() == 0:
                     logger.warning(
-                        "Pre-generated mask too small for %s (pixels=%d, ratio=%.4f), falling back to HSV/spectral",
+                        "Pre-generated mask is empty for %s, falling back to HSV/spectral",
                         sample.sample_id,
-                        mask.sum(),
-                        area_ratio,
                     )
                     mask = None
                 else:

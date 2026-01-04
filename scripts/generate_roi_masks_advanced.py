@@ -48,9 +48,9 @@ def parse_annotations(xml_path):
 
 def main():
     parser = argparse.ArgumentParser(description="Generate ROI masks using XML annotations and advanced segmentation.")
-    parser.add_argument('--input_dir', type=str, default="/home/yr/yr/data/huajiao_test", help="Directory with images")
-    parser.add_argument('--xml_path', type=str, default="/home/yr/yr/data/huajiao_test/annotations.xml", help="Path to annotations.xml")
-    parser.add_argument('--output_dir', type=str, default="/home/yr/yr/data/huajiao_test/results_advanced", help="Output directory")
+    parser.add_argument('--input_dir', type=str, default="/home/yr/yr/data/huajiao_all/huajiao_all_pictures_test", help="Directory with images")
+    parser.add_argument('--xml_path', type=str, default="/home/yr/yr/data/huajiao_all//annotations_20251231_197.xml", help="Path to annotations.xml")
+    parser.add_argument('--output_dir', type=str, default="/home/yr/yr/data/huajiao_all/huajiao_all_pictures_test/results_advanced", help="Output directory")
     parser.add_argument('--debug', action='store_true', help="Save debug masks")
     
     args = parser.parse_args()

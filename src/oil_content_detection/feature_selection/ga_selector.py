@@ -67,7 +67,13 @@ class GeneticAlgorithmSelector:
         model = PLSRegression(n_components=n_components, scale=False)
         cv = KFold(self.config.cv_splits, shuffle=True, random_state=self.config.random_state)
         scores = cross_val_score(model, X[:, selected], y, scoring="r2", cv=cv, n_jobs=None)
-        mean_score = scores.mean()
+        scores = np.asarray(scores, dtype=float)
+        scores = scores[np.isfinite(scores)]
+        if scores.size == 0:
+            return float("-inf")
+        # Guard against numerical blow-ups leading to extremely negative R².
+        scores = np.clip(scores, -1e3, 1.0)
+        mean_score = float(scores.mean())
         # soft penalty to bias towards target feature count
         penalty = 0.004 * abs(selected.size - self.config.target_features)
         return mean_score - penalty
