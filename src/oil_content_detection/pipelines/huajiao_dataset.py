@@ -21,8 +21,8 @@ logger = get_logger(__name__)
 @dataclass
 class LabelConfig:
     sample_id_cols: tuple[str, ...] = ("高光谱图件编号", "图件编号", "编号", "样本编号")
-    distill_volume_cols: tuple[str, ...] = ("蒸馏量（初）ml", "蒸馏量初ml", "蒸馏量", "蒸馏量_ml")
-    weight_cols: tuple[str, ...] = ("重量", "重量(g)", "重量g", "样品重量")
+    distill_volume_cols: tuple[str, ...] = ("蒸馏量（初）ml", "蒸馏量(初)ml", "蒸馏量初ml", "蒸馏量", "蒸馏量_ml")
+    weight_cols: tuple[str, ...] = ("重量", "重量(g)", "重量（g）", "重量g", "样品重量")
     sheet_name: Optional[str] = None
 
 
@@ -38,6 +38,17 @@ class HuajiaoROIConfig:
     min_area: int = 64
     clip_low: float = 0.01
     clip_high: float = 0.99
+    # --- spectral background filtering (inside ROI) ---
+    spectral_bg_filter_enabled: bool = False
+    spectral_bg_filter_method: str = "ratio_median"  # {"ratio_median", "cosine_margin"}
+    spectral_bg_filter_min_bg_pixels: int = 1024
+    spectral_bg_filter_eps: float = 1e-6
+    spectral_bg_filter_sample_size: int = 20000
+    spectral_bg_filter_seed: int = 2026
+    spectral_bg_filter_cosine_margin: float = 0.03
+    spectral_bg_filter_max_removed_ratio: float = 0.20
+    spectral_bg_filter_chunk_size: int = 50000
+    spectral_bg_filter_apply_min_removed_ratio: float = 0.0
     use_hsv: bool = True  # If True, try HSV-based mask first
     hsv_lower: tuple[int, int, int] = (30, 70, 30)  # Defaults from hsv_tuner.py
     hsv_upper: tuple[int, int, int] = (65, 255, 255)
@@ -223,6 +234,166 @@ def clean_mask_extremes(
     removed_ratio = 1.0 - (cleaned_mask.sum() / mask.sum())
     info = {"low": low, "high": high, "removed_ratio": removed_ratio}
     return cleaned_mask, info
+
+
+def filter_mask_background(
+    cube: np.ndarray,
+    mask: np.ndarray,
+    manual_mask: np.ndarray,
+    wavelengths: Sequence[float],
+    config: HuajiaoROIConfig,
+) -> tuple[np.ndarray, Dict[str, float]]:
+    """在手工 ROI 内估计背景并从当前 mask 中剔除。
+
+    支持两种方法：
+    - ratio_median: 使用 ``nir/red`` 比值的中位数阈值（轻量）。
+    - cosine_margin: 基于全光谱均值的余弦相似度差（更稳健，且对亮度变化更不敏感）。
+    """
+    if not config.spectral_bg_filter_enabled:
+        return mask, {}
+
+    if mask.sum() == 0:
+        return mask, {"spectral_bg_filter_skipped": 1.0, "spectral_bg_filter_skip_reason_code": 1.0}
+
+    manual_mask = manual_mask.astype(bool)
+    if manual_mask.shape != mask.shape:
+        raise ValueError("manual_mask and mask must have the same shape")
+
+    bg_mask = manual_mask & (~mask)
+    if bg_mask.sum() < config.spectral_bg_filter_min_bg_pixels:
+        return mask, {
+            "spectral_bg_filter_skipped": 1.0,
+            "spectral_bg_filter_skip_reason_code": 2.0,
+            "spectral_bg_filter_bg_pixel_count": float(bg_mask.sum()),
+        }
+
+    method = str(config.spectral_bg_filter_method or "ratio_median").strip().lower()
+    if method not in {"ratio_median", "cosine_margin"}:
+        raise ValueError(f"Unknown spectral_bg_filter_method: {config.spectral_bg_filter_method}")
+
+    # Prepare output info base.
+    info: Dict[str, float] = {
+        "spectral_bg_filter_enabled": 1.0,
+        "spectral_bg_filter_bg_pixel_count": float(bg_mask.sum()),
+    }
+
+    if method == "ratio_median":
+        nir_idx = nearest_wavelength_index(list(wavelengths), config.nir_target_nm)
+        red_idx = nearest_wavelength_index(list(wavelengths), config.red_target_nm)
+        info["spectral_bg_filter_method_ratio_median"] = 1.0
+        info["spectral_bg_filter_nir_band_index"] = float(nir_idx)
+        info["spectral_bg_filter_red_band_index"] = float(red_idx)
+
+        nir_band = cube[:, :, nir_idx].astype(float)
+        red_band = cube[:, :, red_idx].astype(float)
+
+        ratio_pepper_full = nir_band[mask] / np.maximum(red_band[mask], config.spectral_bg_filter_eps)
+        ratio_bg_full = nir_band[bg_mask] / np.maximum(red_band[bg_mask], config.spectral_bg_filter_eps)
+        ratio_pepper = ratio_pepper_full[np.isfinite(ratio_pepper_full)]
+        ratio_bg = ratio_bg_full[np.isfinite(ratio_bg_full)]
+
+        if ratio_pepper.size == 0 or ratio_bg.size == 0:
+            return mask, {"spectral_bg_filter_skipped": 1.0, "spectral_bg_filter_skip_reason_code": 3.0}
+
+        pepper_median = float(np.median(ratio_pepper))
+        bg_median = float(np.median(ratio_bg))
+        threshold = (pepper_median + bg_median) / 2.0
+
+        # Decide which side is pepper by comparing medians.
+        keep_high = bg_median < pepper_median
+        if keep_high:
+            keep_flags = np.isfinite(ratio_pepper_full) & (ratio_pepper_full >= threshold)
+        else:
+            keep_flags = np.isfinite(ratio_pepper_full) & (ratio_pepper_full <= threshold)
+
+        keep_flags = np.asarray(keep_flags, dtype=bool)
+        kept = int(keep_flags.sum())
+        total = int(mask.sum())
+        removed_ratio = 1.0 - (kept / float(max(total, 1)))
+
+        filtered_mask = np.zeros_like(mask, dtype=bool)
+        flat = filtered_mask.reshape(-1)
+        mask_indices = np.flatnonzero(mask)
+        flat[mask_indices[keep_flags]] = True
+
+        info.update(
+            {
+                "spectral_bg_filter_threshold": float(threshold),
+                "spectral_bg_filter_pepper_median": float(pepper_median),
+                "spectral_bg_filter_bg_median": float(bg_median),
+                "spectral_bg_filter_keep_high": 1.0 if keep_high else 0.0,
+                "spectral_bg_filter_removed_ratio": float(removed_ratio),
+            }
+        )
+
+        if removed_ratio < float(config.spectral_bg_filter_apply_min_removed_ratio):
+            info["spectral_bg_filter_skipped"] = 1.0
+            info["spectral_bg_filter_skip_reason_code"] = 7.0
+            return mask, info
+        return filtered_mask, info
+
+    # cosine_margin method
+    info["spectral_bg_filter_method_cosine_margin"] = 1.0
+    info["spectral_bg_filter_cosine_margin"] = float(config.spectral_bg_filter_cosine_margin)
+
+    rng = np.random.default_rng(config.spectral_bg_filter_seed)
+    mask_indices = np.flatnonzero(mask)
+    bg_indices = np.flatnonzero(bg_mask)
+
+    pepper_sample_n = int(min(config.spectral_bg_filter_sample_size, mask_indices.size))
+    bg_sample_n = int(min(config.spectral_bg_filter_sample_size, bg_indices.size))
+    if pepper_sample_n < 3 or bg_sample_n < 3:
+        return mask, {"spectral_bg_filter_skipped": 1.0, "spectral_bg_filter_skip_reason_code": 4.0}
+
+    pepper_sample_idx = rng.choice(mask_indices, size=pepper_sample_n, replace=False)
+    bg_sample_idx = rng.choice(bg_indices, size=bg_sample_n, replace=False)
+
+    flat_cube = cube.reshape(-1, cube.shape[2])
+    pepper_sample = flat_cube[pepper_sample_idx].astype(np.float32, copy=False)
+    bg_sample = flat_cube[bg_sample_idx].astype(np.float32, copy=False)
+
+    pepper_mean = np.nanmean(pepper_sample, axis=0)
+    bg_mean = np.nanmean(bg_sample, axis=0)
+    pep_norm = float(np.linalg.norm(pepper_mean))
+    bg_norm = float(np.linalg.norm(bg_mean))
+    if pep_norm <= 0 or bg_norm <= 0:
+        return mask, {"spectral_bg_filter_skipped": 1.0, "spectral_bg_filter_skip_reason_code": 5.0}
+
+    pepper_mean_unit = (pepper_mean / pep_norm).astype(np.float32, copy=False)
+    bg_mean_unit = (bg_mean / bg_norm).astype(np.float32, copy=False)
+
+    margin = float(config.spectral_bg_filter_cosine_margin)
+    chunk = int(max(1024, config.spectral_bg_filter_chunk_size))
+    keep_flags = np.empty(mask_indices.size, dtype=bool)
+
+    for start in range(0, mask_indices.size, chunk):
+        end = min(start + chunk, mask_indices.size)
+        idx = mask_indices[start:end]
+        pix = flat_cube[idx].astype(np.float32, copy=False)
+        norms = np.linalg.norm(pix, axis=1)
+        norms = np.maximum(norms, float(config.spectral_bg_filter_eps))
+        sim_pep = (pix @ pepper_mean_unit) / norms
+        sim_bg = (pix @ bg_mean_unit) / norms
+        keep_flags[start:end] = (sim_bg - sim_pep) <= margin
+
+    kept = int(keep_flags.sum())
+    total = int(mask_indices.size)
+    removed_ratio = 1.0 - (kept / float(max(total, 1)))
+    info["spectral_bg_filter_removed_ratio"] = float(removed_ratio)
+
+    if removed_ratio < float(config.spectral_bg_filter_apply_min_removed_ratio):
+        info["spectral_bg_filter_skipped"] = 1.0
+        info["spectral_bg_filter_skip_reason_code"] = 7.0
+        return mask, info
+
+    if removed_ratio > float(config.spectral_bg_filter_max_removed_ratio):
+        info["spectral_bg_filter_skipped"] = 1.0
+        info["spectral_bg_filter_skip_reason_code"] = 6.0
+        return mask, info
+
+    filtered_mask = np.zeros_like(mask, dtype=bool)
+    filtered_mask.reshape(-1)[mask_indices[keep_flags]] = True
+    return filtered_mask, info
 
 
 def _aggregate_spectra(
@@ -419,6 +590,7 @@ def _process_sample(
     agg_cfg: AggregationConfig,
     roi_visualization_dir: Optional[Path],
     roi_mask_dir: Optional[Path] = None,
+    manual_mask_dir: Optional[Path] = None,
 ) -> tuple[Dict[str, float], Dict[str, float]]:
     cube, header = load_envi_cube(sample.hdr_path)
     wavelengths = header.wavelengths or list(range(cube.shape[2]))
@@ -445,6 +617,20 @@ def _process_sample(
                 mask = (np.asarray(mask_img) > 0).astype(bool)
                 mask_info["mask_source"] = "pre_generated"
 
+    manual_mask: Optional[np.ndarray] = None
+    if manual_mask_dir:
+        manual_mask_path = manual_mask_dir / f"{sample.sample_id}_mask.png"
+        if manual_mask_path.exists():
+            try:
+                from PIL import Image
+            except Exception:
+                Image = None  # type: ignore
+            if "Image" in locals() and Image is not None:
+                mm_img = Image.open(manual_mask_path).convert("L")
+                if mm_img.size != (cube.shape[1], cube.shape[0]):
+                    mm_img = mm_img.resize((cube.shape[1], cube.shape[0]), resample=Image.NEAREST)
+                manual_mask = (np.asarray(mm_img) > 0).astype(bool)
+
     if roi_cfg.use_hsv and mask is None:
         if image_path:
             mask = create_hsv_mask(image_path, (cube.shape[0], cube.shape[1]), roi_cfg)
@@ -467,6 +653,10 @@ def _process_sample(
     if mask is None:
         mask, mask_info = create_huajiao_mask(cube, wavelengths, roi_cfg)
         mask_info["mask_source"] = "spectral"
+
+    if roi_cfg.spectral_bg_filter_enabled and manual_mask is not None:
+        mask, bg_info = filter_mask_background(cube, mask, manual_mask, wavelengths, roi_cfg)
+        mask_info.update(bg_info)
 
     cleaned_mask, clean_info = clean_mask_extremes(cube, mask, roi_cfg)
     if cleaned_mask.sum() == 0:
@@ -532,6 +722,10 @@ def _process_sample(
         "hsv_mask_path": str(hsv_mask_path) if hsv_mask_path else "",
         "hsv_overlay_path": str(hsv_overlay_path) if hsv_overlay_path else "",
     }
+
+    for key, value in mask_info.items():
+        if key.startswith("spectral_bg_filter_"):
+            meta_row[key] = float(value)
     return feature_row, meta_row
 
 
@@ -543,13 +737,21 @@ def _build_dataset_from_samples(
     save: bool = True,
     roi_visualization_dir: Optional[Path] = None,
     roi_mask_dir: Optional[Path] = None,
+    manual_mask_dir: Optional[Path] = None,
 ) -> tuple[pd.DataFrame, pd.DataFrame]:
     spectra_rows: List[Dict[str, float]] = []
     meta_rows: List[Dict[str, float]] = []
 
     for sample in samples:
         try:
-            feature_row, meta_row = _process_sample(sample, roi_config, agg_config, roi_visualization_dir, roi_mask_dir)
+            feature_row, meta_row = _process_sample(
+                sample,
+                roi_config,
+                agg_config,
+                roi_visualization_dir,
+                roi_mask_dir,
+                manual_mask_dir,
+            )
         except Exception as exc:
             logger.warning("Skipping sample %s due to error: %s", sample.sample_id, exc)
             continue
@@ -625,6 +827,7 @@ def build_huajiao_dataset_from_split(
     save: bool = True,
     roi_visualization_dir: Optional[Path] = None,
     roi_mask_dir: Optional[Path] = None,
+    manual_mask_dir: Optional[Path] = None,
 ) -> tuple[pd.DataFrame, pd.DataFrame]:
     """基于 train/val txt 清单构建特征表。"""
     roi_cfg = roi_config or HuajiaoROIConfig()
@@ -686,6 +889,7 @@ def build_huajiao_dataset_from_split(
         save=save,
         roi_visualization_dir=roi_visualization_dir,
         roi_mask_dir=roi_mask_dir,
+        manual_mask_dir=manual_mask_dir,
     )
 
 

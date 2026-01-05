@@ -55,6 +55,48 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--clip-low", type=float, default=0.01, help="Lower quantile for extreme removal")
     parser.add_argument("--clip-high", type=float, default=0.99, help="Upper quantile for extreme removal")
     parser.add_argument(
+        "--spectral-bg-filter",
+        action="store_true",
+        help="Enable spectral background filtering using manual masks (NIR/Red ratio-based)",
+    )
+    parser.add_argument(
+        "--spectral-bg-filter-method",
+        type=str,
+        default="cosine_margin",
+        choices=["ratio_median", "cosine_margin"],
+        help="Spectral background filtering method (effective when --spectral-bg-filter is set)",
+    )
+    parser.add_argument(
+        "--manual-mask-dir",
+        type=Path,
+        default=Path("data/processed/ROI_masks_manual"),
+        help="Directory containing manual contour masks (used by --spectral-bg-filter)",
+    )
+    parser.add_argument(
+        "--spectral-bg-filter-min-bg-pixels",
+        type=int,
+        default=1024,
+        help="Minimum background pixel count required to apply spectral-bg-filter",
+    )
+    parser.add_argument(
+        "--spectral-bg-filter-cosine-margin",
+        type=float,
+        default=0.03,
+        help="Cosine similarity margin for cosine_margin method (remove if sim_bg - sim_pep > margin)",
+    )
+    parser.add_argument(
+        "--spectral-bg-filter-sample-size",
+        type=int,
+        default=20000,
+        help="Per-class sample size used to estimate background/pepper mean spectrum (cosine_margin method)",
+    )
+    parser.add_argument(
+        "--spectral-bg-filter-apply-min-removed-ratio",
+        type=float,
+        default=0.0,
+        help="Only apply the filter when estimated removed_ratio >= this value (reduces over-filtering)",
+    )
+    parser.add_argument(
         "--hsv-lower",
         nargs=3,
         type=int,
@@ -91,6 +133,12 @@ def build_configs(args: argparse.Namespace) -> Tuple[HuajiaoROIConfig, Aggregati
         min_area=args.min_area,
         clip_low=args.clip_low,
         clip_high=args.clip_high,
+        spectral_bg_filter_enabled=args.spectral_bg_filter,
+        spectral_bg_filter_method=args.spectral_bg_filter_method,
+        spectral_bg_filter_min_bg_pixels=args.spectral_bg_filter_min_bg_pixels,
+        spectral_bg_filter_sample_size=args.spectral_bg_filter_sample_size,
+        spectral_bg_filter_cosine_margin=args.spectral_bg_filter_cosine_margin,
+        spectral_bg_filter_apply_min_removed_ratio=args.spectral_bg_filter_apply_min_removed_ratio,
         use_hsv=not args.no_hsv,
         hsv_lower=tuple(args.hsv_lower),
         hsv_upper=tuple(args.hsv_upper),
@@ -121,6 +169,7 @@ def main() -> None:
         save=not args.no_save,
         roi_visualization_dir=args.roi_dir,
         roi_mask_dir=args.roi_mask_dir,
+        manual_mask_dir=args.manual_mask_dir if args.spectral_bg_filter else None,
     )
 
     print(f"Built dataset with {len(spectra_df)} samples from {args.split}")
