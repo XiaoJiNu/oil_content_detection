@@ -9,9 +9,12 @@ from .spectral import (
     savgol,
     snv,
 )
+from .sklearn import PLSScoreTransformer, SpectralPreprocessor
 
 __all__ = [
     "PreprocessStep",
+    "PLSScoreTransformer",
+    "SpectralPreprocessor",
     "apply_preprocessing_pipeline",
     "detrend",
     "msc",
