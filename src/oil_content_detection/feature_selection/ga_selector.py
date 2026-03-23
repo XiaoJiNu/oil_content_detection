@@ -8,11 +8,11 @@ from __future__ import annotations
 
 import math
 from dataclasses import dataclass
-from typing import Iterable, List, Optional, Tuple
+from typing import Iterable, List, Optional, Sequence, Tuple
 
 import numpy as np
 from sklearn.cross_decomposition import PLSRegression
-from sklearn.model_selection import KFold, cross_val_score
+from sklearn.model_selection import GroupKFold, KFold, cross_val_score
 
 
 @dataclass
@@ -29,6 +29,9 @@ class GAConfig:
     cv_splits: int = 3
     patience: int = 4
     verbose: bool = False  # If True, print progress during training
+    score_metric: str = "r2"  # "r2" or "neg_rmse"
+    feature_penalty: float = 0.004
+    max_pls_components: int = 10
 
 
 class GeneticAlgorithmSelector:
@@ -53,29 +56,62 @@ class GeneticAlgorithmSelector:
         return mask
 
     @staticmethod
-    def _pls_components(feature_count: int) -> int:
+    def _pls_components(feature_count: int, max_pls_components: int) -> int:
         # limit components to maintain numerical stability
         if feature_count <= 2:
             return 1
-        return min(10, feature_count // 2)
+        return min(max_pls_components, feature_count // 2)
 
-    def _evaluate(self, X: np.ndarray, y: np.ndarray, mask: np.ndarray) -> float:
+    def _build_cv(
+        self,
+        X: np.ndarray,
+        y: np.ndarray,
+        groups: Optional[Sequence[str]] = None,
+    ) -> Iterable[tuple[np.ndarray, np.ndarray]]:
+        if groups is not None:
+            groups_arr = np.asarray(groups)
+            cv = GroupKFold(self.config.cv_splits)
+            return list(cv.split(X, y, groups_arr))
+        cv = KFold(self.config.cv_splits, shuffle=True, random_state=self.config.random_state)
+        return list(cv.split(X, y))
+
+    def _evaluate(
+        self,
+        X: np.ndarray,
+        y: np.ndarray,
+        mask: np.ndarray,
+        groups: Optional[Sequence[str]] = None,
+    ) -> float:
         selected = np.where(mask)[0]
         if selected.size == 0:
             return float("-inf")
-        n_components = self._pls_components(selected.size)
+        n_components = self._pls_components(selected.size, self.config.max_pls_components)
         model = PLSRegression(n_components=n_components, scale=False)
-        cv = KFold(self.config.cv_splits, shuffle=True, random_state=self.config.random_state)
-        scores = cross_val_score(model, X[:, selected], y, scoring="r2", cv=cv, n_jobs=None)
+        cv_splits = self._build_cv(X[:, selected], y, groups)
+        metric = self.config.score_metric.lower()
+        scoring = "r2" if metric == "r2" else "neg_root_mean_squared_error"
+        try:
+            scores = cross_val_score(
+                model,
+                X[:, selected],
+                y,
+                scoring=scoring,
+                cv=cv_splits,
+                n_jobs=None,
+                error_score=np.nan,
+            )
+        except Exception:
+            return float("-inf")
         scores = np.asarray(scores, dtype=float)
         scores = scores[np.isfinite(scores)]
         if scores.size == 0:
             return float("-inf")
-        # Guard against numerical blow-ups leading to extremely negative R².
-        scores = np.clip(scores, -1e3, 1.0)
+        if metric == "r2":
+            # Guard against numerical blow-ups leading to extremely negative R².
+            scores = np.clip(scores, -1e3, 1.0)
         mean_score = float(scores.mean())
         # soft penalty to bias towards target feature count
-        penalty = 0.004 * abs(selected.size - self.config.target_features)
+        penalty = self.config.feature_penalty * abs(selected.size - self.config.target_features)
         return mean_score - penalty
 
     def _initial_population(self, n_features: int) -> np.ndarray:
@@ -108,10 +144,15 @@ class GeneticAlgorithmSelector:
         mask ^= mutation_flags
         return mask
 
-    def fit(self, X: np.ndarray, y: np.ndarray) -> "GeneticAlgorithmSelector":
+    def fit(
+        self,
+        X: np.ndarray,
+        y: np.ndarray,
+        groups: Optional[Sequence[str]] = None,
+    ) -> "GeneticAlgorithmSelector":
         n_features = X.shape[1]
         population = self._initial_population(n_features)
-        fitness = np.array([self._evaluate(X, y, ind) for ind in population])
+        fitness = np.array([self._evaluate(X, y, ind, groups) for ind in population])
 
         best_idx = np.argmax(fitness)
         self._best_mask = population[best_idx].copy()
@@ -137,7 +178,7 @@ class GeneticAlgorithmSelector:
                 new_population.extend([child_a, child_b])
 
             population = np.array(new_population[: self.config.population_size], dtype=bool)
-            fitness = np.array([self._evaluate(X, y, ind) for ind in population])
+            fitness = np.array([self._evaluate(X, y, ind, groups) for ind in population])
 
             gen_best_idx = np.argmax(fitness)
             gen_best_score = fitness[gen_best_idx]

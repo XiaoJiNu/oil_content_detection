@@ -132,19 +132,29 @@ def tune_plsr_components(
     best_score = float("-inf")  # maximizing neg RMSE
     for n_components in range(1, max_allowed + 1):
         model = PLSRegression(n_components=n_components, scale=False)
-        scores = cross_val_score(
-            model,
-            X,
-            y,
-            scoring="neg_root_mean_squared_error",
-            cv=splits,
-            n_jobs=None,
-        )
+        try:
+            scores = cross_val_score(
+                model,
+                X,
+                y,
+                scoring="neg_root_mean_squared_error",
+                cv=splits,
+                n_jobs=None,
+                error_score=np.nan,
+            )
+        except Exception:
+            continue
+        scores = np.asarray(scores, dtype=float)
+        scores = scores[np.isfinite(scores)]
+        if scores.size == 0:
+            continue
         mean_score = float(np.mean(scores))
         if mean_score > best_score:
             best_score = mean_score
             best_n = n_components
 
+    if not np.isfinite(best_score):
+        return 1, float("nan")
     best_rmse = -best_score
     return best_n, best_rmse
 
