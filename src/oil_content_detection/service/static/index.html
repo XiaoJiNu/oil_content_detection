@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>花椒含油率检测展示</title>
+    <link rel="stylesheet" href="/static/styles.css" />
+  </head>
+  <body>
+    <main class="page">
+      <header class="hero">
+        <div>
+          <p class="eyebrow">Huajiao Oil Content Detection</p>
+          <h1>花椒含油率检测展示</h1>
+          <p class="subtitle">上传 RGB 图片和 ENVI 高光谱数据，系统自动分割 ROI、预测含油率，并生成可视化结果。</p>
+        </div>
+        <div id="health" class="health">模型状态检查中…</div>
+      </header>
+
+      <section class="card">
+        <h2>上传样本</h2>
+        <form id="predict-form" class="form">
+          <label>
+            样本编号（可选）
+            <input name="sample_id" type="text" placeholder="例如 0286_11" />
+          </label>
+          <label>
+            RGB 图片（.png/.jpg/.bmp）
+            <input name="image" type="file" accept=".png,.jpg,.jpeg,.bmp" required />
+          </label>
+          <label>
+            ENVI Header（.hdr）
+            <input name="hdr" type="file" accept=".hdr" required />
+          </label>
+          <label>
+            ENVI 数据文件（.dat/.raw）
+            <input name="dat" type="file" accept=".dat,.raw" required />
+          </label>
+          <label class="checkbox">
+            <input name="generate_heatmap" type="checkbox" checked />
+            生成模型响应热力图
+          </label>
+          <button id="submit-button" type="submit">开始检测</button>
+        </form>
+        <p id="status" class="status"></p>
+      </section>
+
+      <section id="result-card" class="card hidden">
+        <h2>检测结果</h2>
+        <div class="result-grid">
+          <div class="prediction-box">
+            <span class="label">含油率预测</span>
+            <strong id="prediction-value">--</strong>
+            <span id="prediction-unit">ml/100g</span>
+          </div>
+          <dl class="meta">
+            <div><dt>QC 状态</dt><dd id="qc-status">--</dd></div>
+            <div><dt>模型版本</dt><dd id="model-version">--</dd></div>
+            <div><dt>Job ID</dt><dd id="job-id">--</dd></div>
+            <div><dt>ROI 覆盖率</dt><dd id="coverage-ratio">--</dd></div>
+            <div><dt>ROI 像素数</dt><dd id="pepper-pixels">--</dd></div>
+            <div><dt>有效像素比例</dt><dd id="valid-pixel-ratio">--</dd></div>
+          </dl>
+        </div>
+        <div id="warnings" class="warnings hidden"></div>
+      </section>
+
+      <section id="visual-card" class="card hidden">
+        <h2>可视化结果</h2>
+        <p class="note">热力图为基于 ROI 内像素光谱的模型响应/相对分布可视化，不代表经过独立标定的逐像素真实含油率。</p>
+        <div id="visual-grid" class="visual-grid"></div>
+      </section>
+
+      <section id="json-card" class="card hidden">
+        <h2>原始响应 JSON</h2>
+        <pre id="json-output"></pre>
+      </section>
+    </main>
+    <script src="/static/app.js"></script>
+  </body>
+</html>

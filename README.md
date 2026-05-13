@@ -1,6 +1,75 @@
-# 油茶籽含油率检测复现项目
+# 花椒含油率检测工程交付仓库
 
-本仓库用于复现论文《基于高光谱成像的油茶籽含油率检测方法》中的最佳方案（光谱集Ⅱ + 遗传算法 + PLSR），当前提供模拟数据与完整代码骨架，便于后续替换为真实高光谱/含油率测定数据。
+当前主交付是花椒含油率 RGB + ENVI 高光谱 cube 推理工程包。最新可交付候选模型为 `artifacts/huajiao-oil-content-dinov3-gray-otsu-refined-roi-v0.3.1`：先使用 `artifacts/huajiao-dinov3-roi-seg-v0.1.0` 的 DINOv3 ROI 分割模型在 RGB 图像上得到 coarse polygon mask，再在 polygon 内执行 gray_otsu 二次精分割得到 refined mask，从同尺寸 cube 中聚合 ROI 光谱，最后输出 `oil_ml_per_100g` 预测 JSON。
+
+## 当前部署 Quickstart（DINOv3 ROI + 含油率）
+
+环境使用本仓库约定的 Conda 环境：
+
+```bash
+/home/yr/anaconda3/envs/hj/bin/python -m pytest -q tests/inference
+```
+
+Web 展示应用启动示例：
+
+```bash
+/home/yr/anaconda3/envs/hj/bin/python scripts/huajiao_web.py \
+  --model-dir artifacts/huajiao-oil-content-dinov3-gray-otsu-refined-roi-v0.3.1 \
+  --host 0.0.0.0 \
+  --port 8000 \
+  --upload-root runtime/huajiao_web/uploads \
+  --output-root runtime/huajiao_web/outputs
+```
+
+启动后浏览器打开 `http://<server-ip>:8000/`，上传 RGB 图片、ENVI `.hdr` 和 `.dat/.raw` 文件即可得到含油率预测、ROI mask/overlay、模型响应热力图和可下载 JSON。服务接口见 `docs/specs/huajiao-web-app.md`，部署/排查见 `docs/runbooks/huajiao-web-app.md`。
+
+单样本 CLI smoke 示例：
+
+```bash
+/home/yr/anaconda3/envs/hj/bin/python scripts/huajiao_predict.py \
+  --model-dir artifacts/huajiao-oil-content-dinov3-gray-otsu-refined-roi-v0.3.1 \
+  --image /path/to/sample.png \
+  --hdr /path/to/capture/REFLECTANCE_sample.hdr \
+  --sample-id sample-id \
+  --out /tmp/huajiao_prediction.json \
+  --debug-dir /tmp/huajiao_debug
+```
+
+Python API 示例：
+
+```python
+from oil_content_detection.inference import HuajiaoOilPredictor
+
+predictor = HuajiaoOilPredictor.from_artifact(
+    "artifacts/huajiao-oil-content-dinov3-gray-otsu-refined-roi-v0.3.1"
+)
+result = predictor.predict(
+    image_path="/path/to/sample.png",
+    hdr_path="/path/to/capture/REFLECTANCE_sample.hdr",
+    sample_id="sample-id",
+    debug_dir="/tmp/huajiao_debug",
+)
+print(result.to_dict())
+```
+
+输入契约：RGB 图像与 ENVI cube 必须是同视角、同尺寸；推理代码不会自动配准或 resize。输出 JSON 包含预测值、模型版本、ROI 像素数、覆盖率、mask/overlay debug 路径和 QC 状态。常见错误码包括 `INPUT_FILE_NOT_FOUND`、`UNSUPPORTED_SPECTRAL_FORMAT`、`WAVELENGTH_SCHEMA_MISMATCH`、`ROI_EMPTY`、`ROI_LOW_COVERAGE`、`CUBE_IMAGE_SHAPE_MISMATCH`、`MODEL_ARTIFACT_MISSING`、`ROI_SEGMENTATION_FAILED`。
+
+重要边界：`artifacts/huajiao-report-20260505-snv-sg1-pls10-batch-quality-huber` 是精确复现/内部对照模型，包含 `weight_g`、`batch`、`sid_num`，不能直接交给应用团队做“只上传 RGB+cube”的展示部署。本次交付的 DINOv3 ROI artifact 已用同一 DINOv3 ROI serving 路径重新提取 train/val cube 特征，并禁止使用重量、批次、样本编号和标签字段。
+
+当前 DINOv3 ROI + gray_otsu refined 部署候选模型指标（正式 train/val split，train only fit）：Train R²=0.639776、RMSE=0.265788、MAE=0.205741；Val R²=0.777996、RMSE=0.212330、MAE=0.170691。DINOv3 coarse polygon coverage train≈0.438、val≈0.447；gray_otsu refined 后 coverage train≈0.167、val≈0.171，Val mask Dice≈0.963、IoU≈0.929。一次真实样本 `0346_11` smoke 已输出到 `/home/yr/yr/tmp/huajiao_dinov3_gray_otsu_refined_smoke_0346_11_v4/prediction.json`，`roi.mask_source=dinov3_roi_gray_otsu_refined`。
+
+详细工程文档：
+
+- `ARCHITECTURE.md`：端到端架构与数据流。
+- `docs/specs/huajiao-oil-model-serving.md`：输入/输出契约、错误码、验收标准。
+- `docs/runbooks/huajiao-inference.md`：推理运行与排查。
+- `docs/specs/huajiao-web-app.md`：FastAPI/Web 上传接口、响应 JSON、可视化 URL 和验收标准。
+- `docs/runbooks/huajiao-web-app.md`：Web 服务启动、curl/TestClient smoke 和部署排查。
+- `docs/runbooks/model-release.md`：重新打包、校验、发布与回滚。
+
+## 历史复现背景
+
+本仓库早期用于复现论文《基于高光谱成像的油茶籽含油率检测方法》中的最佳方案（光谱集Ⅱ + 遗传算法 + PLSR），并逐步扩展到花椒高光谱含油率检测。下方保留历史实验记录和脚本说明，当前应用集成应优先参考上面的部署 Quickstart 和 `docs/` 下的工程文档。
 
 ## 项目目标
 
