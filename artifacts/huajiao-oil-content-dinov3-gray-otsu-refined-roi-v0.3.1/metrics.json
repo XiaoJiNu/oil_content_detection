@@ -1,0 +1,38 @@
+{
+  "target": "oil_ml_per_100g",
+  "unit": "ml/100g",
+  "source_report": "docs/reference_docs/实验记录/花椒含油率模型实验进展报告_20260505.md",
+  "data_dir": "/home/yr/yr/code/cv/oil_content_detection/data/processed/huajiao_refined",
+  "feature_source": "dinov3-roi-cube",
+  "roi_backend": "dinov3",
+  "strictness": "formal train/val split; model fit on train only; report-derived family repackaged without weight/batch/sid for mode-B serving",
+  "deployment_constraints": {
+    "input_mode": "envi_cube_with_rgb_image",
+    "require_same_shape": true,
+    "forbidden_features": [
+      "distill_ml",
+      "oil_ml_per_gram",
+      "oil_ml_per_100g",
+      "weight_g",
+      "batch",
+      "sid_num"
+    ]
+  },
+  "train": {
+    "n": 157,
+    "r2": 0.6397764159315661,
+    "rmse": 0.26578800752748305,
+    "mae": 0.20574112801398295
+  },
+  "val": {
+    "n": 40,
+    "r2": 0.7779964036646367,
+    "rmse": 0.21233045789325608,
+    "mae": 0.1706910803340115
+  },
+  "reference_report_best": {
+    "val_r2": 0.8502290629192442,
+    "val_rmse": 0.17439983308189466,
+    "val_mae": 0.1448869339723355
+  }
+}

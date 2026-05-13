@@ -42,22 +42,35 @@ htmlcov/
 .tox/
 *.cover
 
-# Data files (keep raw data in git, exclude processed and large files)
-data/processed/**/*.npz
-data/processed/**/*.npy
-data/processed/**/*.h5
-data
-tests
+# Data files (do not commit large raw/processed captures by default)
+# Keep tiny fixtures under data/fixtures or tests/fixtures when needed.
+data/raw/
+data/processed/
+!data/fixtures/
+!data/fixtures/**
 *.npz
 *.npy
 *.h5
-results
 
-# Logs and results
+# Experiment outputs and logs
 *.log
 results/
 logs/
 outputs/
+runtime/
+
+# Local agent/session planning files
+.codex
+.hermes/plans/
+
+# Generated model diagnostics and non-release artifact byproducts
+artifacts/*smoke*/
+artifacts/**/latest_model.pt
+artifacts/**/eval_*/
+artifacts/**/training_features/
+artifacts/**/*predictions.csv
+artifacts/huajiao-oil-content-auto-roi-*/
+artifacts/huajiao-oil-content-dinov3-roi-v0.3.0/
 
 # Jupyter
 .ipynb_checkpoints/

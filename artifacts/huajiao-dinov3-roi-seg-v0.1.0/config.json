@@ -1,0 +1,42 @@
+{
+  "artifact_type": "huajiao-dinov3-roi-segmentation",
+  "created_at": "2026-05-09T14:52:53",
+  "image_size": 448,
+  "threshold": 0.5,
+  "backbone": {
+    "repo_dir": "/home/yr/yr/code/cv/large_models/dinov3_all/dinov3",
+    "weights_path": "/home/yr/yr/code/cv/large_models/dinov3_all/models/dinov3/dinov3_vits16_pretrain_lvd1689m-08c60483.pth",
+    "model_name": "dinov3_vits16",
+    "image_size": 448,
+    "patch_size": 16,
+    "freeze_backbone": true,
+    "feature_dim": null,
+    "trust_repo": true
+  },
+  "head": {
+    "feature_dim": 384,
+    "head_channels": 128,
+    "dropout": 0.1
+  },
+  "training": {
+    "epochs": 20,
+    "batch_size": 4,
+    "lr": 0.001,
+    "weight_decay": 0.0001,
+    "seed": 42,
+    "freeze_backbone": true,
+    "amp": true,
+    "bce_weight": 0.5
+  },
+  "data": {
+    "processed_dir": "/home/yr/yr/code/cv/oil_content_detection/data/processed/huajiao_refined",
+    "annotation_xml": "/home/yr/yr/data/huajiao_all/annotations_20251231_197.xml",
+    "train_samples": 157,
+    "val_samples": 40,
+    "label_names": [
+      "peper",
+      "pepper"
+    ]
+  },
+  "weights_sha256": "08c60483bc63c04f533611e34bf70b120eedb7240f469bc16e9e20bf344b941d"
+}

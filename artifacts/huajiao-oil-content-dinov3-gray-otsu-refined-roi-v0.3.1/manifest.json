@@ -1,0 +1,24 @@
+{
+  "model_version": "huajiao-oil-content-dinov3-gray-otsu-refined-roi-v0.3.1",
+  "target_name": "oil_ml_per_100g",
+  "unit": "ml/100g",
+  "input_mode": "envi_cube_with_rgb_image",
+  "created_at": "2026-05-09T09:08:32.774250+00:00",
+  "training_data_id": "/home/yr/yr/code/cv/oil_content_detection/data/processed/huajiao_refined",
+  "feature_source": "dinov3-roi-cube",
+  "roi_backend": "dinov3",
+  "source_report": "docs/reference_docs/实验记录/花椒含油率模型实验进展报告_20260505.md",
+  "code_commit": "daa3be3a102bdafec3ada939730c4a26b6938b44",
+  "model_sha256": "51e05592b632f362226b3683d7b1a58d977822abc60f6f042780058079651206",
+  "feature_schema_sha256": "01e04b28220abfd1f2e9156d6a3ac392008e0ac5a1c0d456194e3872c113ffac",
+  "required_python": ">=3.10",
+  "dependencies": {
+    "python": "3.11.14",
+    "numpy": "1.26.0",
+    "pandas": "2.3.3",
+    "scikit_learn": "1.7.2",
+    "scipy": "1.16.3",
+    "opencv": "4.11.0",
+    "joblib": "1.5.2"
+  }
+}

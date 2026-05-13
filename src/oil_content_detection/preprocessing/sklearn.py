@@ -23,7 +23,9 @@ class SpectralPreprocessor(BaseEstimator, TransformerMixin):
     """Sklearn-compatible wrapper around spectral preprocessing steps."""
 
     def __init__(self, steps: Sequence[PreprocessStep | str] = ()) -> None:
-        self.steps = list(steps)
+        # Keep the constructor parameter unchanged so sklearn.clone can rebuild
+        # this transformer inside Pipeline/ColumnTransformer artifacts.
+        self.steps = steps
         self.fitted_steps_: list[_FittedStep] = []
 
     def fit(self, X: np.ndarray, y: np.ndarray | None = None) -> "SpectralPreprocessor":
@@ -57,12 +59,13 @@ class SpectralPreprocessor(BaseEstimator, TransformerMixin):
         if name == "msc":
             ref = np.asarray(fitted.state["reference"], dtype=float)
             corrected = np.empty_like(X, dtype=float)
-            design = np.hstack([ref.T, np.ones((ref.shape[1], 1), dtype=float)])
+            ref_col = ref.reshape(-1, 1)
+            ref_vec = ref.reshape(-1)
             for i, spectrum in enumerate(X):
-                coeffs, *_ = np.linalg.lstsq(design, spectrum, rcond=None)
-                slope = float(coeffs[0])
-                intercept = float(coeffs[1])
-                corrected[i] = (spectrum - intercept) / max(abs(slope), 1e-8)
+                coeffs, *_ = np.linalg.lstsq(ref_col, spectrum, rcond=None)
+                slope = float(coeffs[0]) if np.ndim(coeffs) > 0 else float(coeffs)
+                intercept = float(np.nanmean(spectrum - slope * ref_vec))
+                corrected[i] = (spectrum - intercept) / max(slope, 1e-8)
             return corrected
         return apply_preprocessing_pipeline(X, [fitted.step])
 
@@ -76,9 +79,13 @@ class PLSScoreTransformer(BaseEstimator, TransformerMixin):
         self.pls_: PLSRegression | None = None
 
     def fit(self, X: np.ndarray, y: np.ndarray) -> "PLSScoreTransformer":
-        n_components = min(self.n_components, max(1, X.shape[0] - 1), X.shape[1])
+        X_arr = np.asarray(X, dtype=float)
+        y_arr = np.asarray(y, dtype=float)
+        centered = X_arr - np.nanmean(X_arr, axis=0, keepdims=True)
+        rank = int(np.linalg.matrix_rank(np.nan_to_num(centered)))
+        n_components = min(self.n_components, max(1, X_arr.shape[0] - 1), X_arr.shape[1], max(1, rank))
         self.pls_ = PLSRegression(n_components=n_components, scale=self.scale)
-        self.pls_.fit(np.asarray(X, dtype=float), np.asarray(y, dtype=float))
+        self.pls_.fit(X_arr, y_arr)
         return self
 
     def transform(self, X: np.ndarray) -> np.ndarray:

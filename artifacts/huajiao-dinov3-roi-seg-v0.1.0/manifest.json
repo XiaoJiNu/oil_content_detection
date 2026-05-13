@@ -1,0 +1,12 @@
+{
+  "artifact_type": "huajiao-dinov3-roi-segmentation",
+  "created_at": "2026-05-09T14:57:12",
+  "best_epoch": 18,
+  "best_val_dice": 0.9752920490894533,
+  "model_name": "dinov3_vits16",
+  "backbone_weights": "/home/yr/yr/code/cv/large_models/dinov3_all/models/dinov3/dinov3_vits16_pretrain_lvd1689m-08c60483.pth",
+  "backbone_weights_sha256": "08c60483bc63c04f533611e34bf70b120eedb7240f469bc16e9e20bf344b941d",
+  "best_model_sha256": "289c6f0507c13cb2bb932130983767048b54df1385b38eee3de156821b1be808",
+  "config": "config.json",
+  "metrics": "metrics.json"
+}

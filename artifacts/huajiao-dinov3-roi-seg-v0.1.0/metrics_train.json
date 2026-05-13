@@ -1,0 +1,17 @@
+{
+  "mean_dice": 0.9773786159257786,
+  "mean_iou": 0.9558076734998144,
+  "mean_precision": 0.978253590094438,
+  "mean_recall": 0.9767591380003486,
+  "mean_accuracy": 0.9803649123726192,
+  "mean_pred_coverage": 0.43800419167941157,
+  "mean_target_coverage": 0.4388547418670015,
+  "mean_tp": 574583.3248407643,
+  "mean_fp": 12590.968152866242,
+  "mean_fn": 13731.331210191083,
+  "mean_tn": 739660.3885350318,
+  "split": "train",
+  "n_samples": 157,
+  "threshold": 0.5,
+  "predictions_csv": "artifacts/huajiao-dinov3-roi-seg-v0.1.0/eval_train/predictions.csv"
+}

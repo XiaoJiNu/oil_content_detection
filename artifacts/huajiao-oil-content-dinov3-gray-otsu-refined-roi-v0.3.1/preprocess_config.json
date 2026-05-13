@@ -1,0 +1,24 @@
+{
+  "preprocess": [
+    {
+      "name": "snv"
+    },
+    {
+      "name": "savgol",
+      "params": {
+        "window_length": 13,
+        "polyorder": 2,
+        "deriv": 1
+      }
+    }
+  ],
+  "representation": {
+    "type": "PLSScoreTransformer",
+    "n_components": 12,
+    "scale": false
+  },
+  "regressor": {
+    "type": "Ridge",
+    "alpha": 0.01
+  }
+}

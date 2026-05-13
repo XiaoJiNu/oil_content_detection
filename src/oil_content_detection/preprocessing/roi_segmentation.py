@@ -103,7 +103,16 @@ class PepperROIConfig:
     texture_min_keep_ratio: float = 0.15
 
     # Segmentation Mode
-    segmentation_mode: str = "color_texture"  # "color_texture" or "gray_otsu"
+    segmentation_mode: str = "color_texture"  # "color_texture", "gray_otsu", or "hybrid"
+
+    # Hybrid strategy selection.  The defaults are calibrated for the current
+    # Huajiao capture setup where the historical/manual pepper coverage is
+    # typically around 0.15~0.20 of the full image.  These values are only used
+    # to choose between deterministic image-processing candidates; they do not
+    # use labels or target values at inference time.
+    hybrid_target_coverage_ratio: float = 0.17
+    hybrid_min_coverage_ratio: float = 0.05
+    hybrid_max_coverage_ratio: float = 0.35
 
     # Red background fallback (ROI mode)
     use_lab_red_bg_fallback: bool = True
@@ -122,7 +131,7 @@ class PepperROIResult:
     pepper_candidate: np.ndarray  # bool
     texture_mask: Optional[np.ndarray]  # bool
     pepper_mask: np.ndarray  # bool
-    info: Dict[str, float]
+    info: Dict[str, float | str]
 
     def pepper_mask_uint8(self) -> np.ndarray:
         return _mask_to_uint8(self.pepper_mask)
@@ -431,55 +440,80 @@ def segment_pepper_roi(image_bgr: np.ndarray, config: PepperROIConfig | None = N
 
     texture_mask: Optional[np.ndarray] = None
     red_bg_mask = np.zeros_like(paper_mask)
+    texture_thr = float("nan")
+    gray_otsu_thr = float("nan")
+    selected_strategy = str(cfg.segmentation_mode)
 
-    if cfg.segmentation_mode == "gray_otsu":
-        # Gray + Otsu Strategy
+    def gray_otsu_candidate() -> tuple[np.ndarray, float]:
         roi_for_otsu = paper_mask & (~label_mask)
         roi_pixels = gray_enhanced[roi_for_otsu]
-        
-        if roi_pixels.size > 0:
-            thr_val = _otsu_threshold(roi_pixels)
-            # Create binary mask: pixels > threshold
-            # We don't know yet if peppers are dark or light relative to paper.
-            # But usually Otsu separates two classes.
-            binary_mask = (gray_enhanced > thr_val) & roi_for_otsu
-            
-            # Polarity check: Assume background (paper) area > pepper area
-            # If the resulting mask covers > 50% of the ROI, it's likely the background.
-            if binary_mask.sum() > (roi_for_otsu.sum() * 0.5):
-                pepper_candidate = (~binary_mask) & roi_for_otsu
+        if roi_pixels.size == 0:
+            return np.zeros_like(paper_mask), float("nan")
+        thr_val = _otsu_threshold(roi_pixels)
+        binary_mask = (gray_enhanced > thr_val) & roi_for_otsu
+        # Polarity check: background/paper should occupy the larger class.
+        if binary_mask.sum() > (roi_for_otsu.sum() * 0.5):
+            return (~binary_mask) & roi_for_otsu, thr_val
+        return binary_mask, thr_val
+
+    # Color candidate: remove red paper/background from detected paper area.
+    red_bg_mask = red_mask & paper_mask
+    bg_dilate = _ensure_odd(cfg.bg_dilate_size, minimum=1)
+    if bg_dilate > 1:
+        red_bg_u8 = _mask_to_uint8(red_bg_mask)
+        red_bg_u8 = cv2.dilate(
+            red_bg_u8, cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (bg_dilate, bg_dilate)), iterations=1
+        )
+        red_bg_mask = red_bg_u8 > 0
+    color_no_texture = paper_mask & (~label_mask) & (~red_bg_mask)
+
+    if cfg.use_texture:
+        sigma_norm = _local_std_map(gray_enhanced, cfg.texture_window_size)
+        roi = paper_mask & (~label_mask)
+        vals = sigma_norm[roi]
+        texture_thr = max(_otsu_threshold(vals), float(cfg.texture_min_threshold))
+        texture_mask = (sigma_norm >= texture_thr) & roi
+    color_texture = color_no_texture | texture_mask if texture_mask is not None else color_no_texture
+
+    if cfg.segmentation_mode == "gray_otsu":
+        pepper_candidate, gray_otsu_thr = gray_otsu_candidate()
+        pepper_mask = pepper_candidate.copy()
+        selected_strategy = "gray_otsu"
+    elif cfg.segmentation_mode == "hybrid":
+        gray_mask, gray_otsu_thr = gray_otsu_candidate()
+        candidates = {
+            "gray_otsu": gray_mask,
+            "color_no_texture": color_no_texture,
+            "color_texture": color_texture,
+            "hybrid_intersection": gray_mask & color_texture,
+        }
+        target = max(float(cfg.hybrid_target_coverage_ratio), 1e-9)
+        min_cov = max(float(cfg.hybrid_min_coverage_ratio), 0.0)
+        max_cov = min(max(float(cfg.hybrid_max_coverage_ratio), min_cov), 1.0)
+
+        def candidate_score(mask: np.ndarray) -> float:
+            coverage = float(mask.mean())
+            if coverage <= 0.0:
+                return float("inf")
+            if coverage < min_cov:
+                range_penalty = (min_cov - coverage) / max(min_cov, 1e-9)
+            elif coverage > max_cov:
+                range_penalty = (coverage - max_cov) / max(max_cov, 1e-9)
             else:
-                pepper_candidate = binary_mask
-        else:
-            pepper_candidate = np.zeros_like(paper_mask)
-            
-        pepper_mask = pepper_candidate.copy()
-        
+                range_penalty = 0.0
+            target_penalty = abs(float(np.log((coverage + 1e-9) / target)))
+            return target_penalty + 3.0 * range_penalty
+
+        selected_strategy, pepper_mask = min(candidates.items(), key=lambda item: candidate_score(item[1]))
+        pepper_candidate = pepper_mask.copy()
+    elif cfg.segmentation_mode == "color_texture":
+        pepper_candidate = color_no_texture
+        pepper_mask = color_texture.copy()
+        selected_strategy = "color_texture"
     else:
-        # Default: Color + Texture Strategy
-        red_bg_mask = red_mask & paper_mask
-        bg_dilate = _ensure_odd(cfg.bg_dilate_size, minimum=1)
-        if bg_dilate > 1:
-            red_bg_u8 = _mask_to_uint8(red_bg_mask)
-            red_bg_u8 = cv2.dilate(
-                red_bg_u8, cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (bg_dilate, bg_dilate)), iterations=1
-            )
-            red_bg_mask = red_bg_u8 > 0
-
-        pepper_candidate = paper_mask & (~label_mask) & (~red_bg_mask)
-
-        pepper_mask = pepper_candidate.copy()
-        texture_thr = float("nan")
-        if cfg.use_texture:
-            sigma_norm = _local_std_map(gray_enhanced, cfg.texture_window_size)
-            roi = paper_mask & (~label_mask)
-            vals = sigma_norm[roi]
-            texture_thr = max(_otsu_threshold(vals), float(cfg.texture_min_threshold))
-            texture_mask = (sigma_norm >= texture_thr) & roi
-
-            # Use OR logic: Pepper is either (Not Red) OR (High Texture)
-            refined = pepper_candidate | texture_mask
-            pepper_mask = refined
+        raise ValueError(
+            f"Unsupported segmentation_mode={cfg.segmentation_mode!r}; expected 'color_texture', 'gray_otsu', or 'hybrid'."
+        )
 
     pepper_u8 = _mask_to_uint8(pepper_mask)
     open_k = _ensure_odd(cfg.pepper_open_size, minimum=1)
@@ -517,10 +551,12 @@ def segment_pepper_roi(image_bgr: np.ndarray, config: PepperROIConfig | None = N
         pepper_u8 = filtered
 
     pepper_mask = (pepper_u8 > 0) & paper_mask & (~label_mask)
-    info: Dict[str, float] = {
+    info: Dict[str, float | str] = {
         **{f"paper_{k}": float(v) for k, v in paper_info.items() if isinstance(v, (int, float))},
         **{f"label_{k}": float(v) for k, v in label_info.items() if isinstance(v, (int, float))},
+        "segmentation_strategy": selected_strategy,
         "texture_thr": float(texture_thr) if np.isfinite(texture_thr) else float("nan"),
+        "gray_otsu_thr": float(gray_otsu_thr) if np.isfinite(gray_otsu_thr) else float("nan"),
         "paper_pixels": float(paper_mask.sum()),
         "label_pixels": float(label_mask.sum()),
         "pepper_pixels": float(pepper_mask.sum()),
@@ -681,7 +717,7 @@ def segment_pepper_in_mask(
         pepper_u8 = filtered
 
     pepper_mask = (pepper_u8 > 0) & paper_mask & (~label_mask)
-    info: Dict[str, float] = {
+    info: Dict[str, float | str] = {
         "paper_source": 2.0,
         "paper_red_ratio_hsv": float(red_ratio),
         "paper_used_lab_red_fallback": float(used_lab_fallback),
