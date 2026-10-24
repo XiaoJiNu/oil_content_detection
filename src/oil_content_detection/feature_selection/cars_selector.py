@@ -227,4 +227,14 @@ def select_wavelengths_cars(
     return selector.get_support(), selector
 
 
-__all__ = ["CARSConfig", "CARSSelector", "select_wavelengths_cars"]
+def select_wavelengths(
+    X: np.ndarray,
+    y: np.ndarray,
+    config: CARSConfig | None = None,
+    groups: Optional[Sequence[str]] = None,
+) -> Tuple[np.ndarray, CARSSelector]:
+    """Backward-compatible convenience wrapper for CARS selection."""
+    return select_wavelengths_cars(X, y, config=config, groups=groups)
+
+
+__all__ = ["CARSConfig", "CARSSelector", "select_wavelengths", "select_wavelengths_cars"]

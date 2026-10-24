@@ -2,7 +2,7 @@
 
 ## 用途
 
-花椒含油率展示/工程调用模型。输入为同视角、同尺寸 RGB 图像与 ENVI 高光谱 cube，系统自动用 DINOv3 ROI 分割模型先定位 coarse polygon，再在 polygon 内执行 gray_otsu 二次精分割得到 refined 花椒区域，聚合 ROI 内平均光谱，并输出 `oil_ml_per_100g` 预测值。
+花椒含油率展示/工程调用模型。输入为同视角 RGB 图像与 ENVI 高光谱 cube；RGB 高宽与 cube `(lines, samples)` 完全一致时直接推理，任一维度相差不超过 5 像素时服务自动将 RGB resize 到 cube 高宽后推理。系统用 DINOv3 ROI 分割模型先定位 coarse polygon，再在 polygon 内执行 gray_otsu 二次精分割得到 refined 花椒区域，聚合 ROI 内平均光谱，并输出 `oil_ml_per_100g` 预测值。
 
 ## 来源实验
 
@@ -31,7 +31,7 @@
 
 1. `image_path`: RGB/BGR 图像文件，OpenCV 可读取。
 2. `hdr_path`: ENVI `.hdr` 文件，旁边必须有同名 `.dat`。
-3. RGB 图像高宽必须与 cube 的 `(lines, samples)` 完全一致；不做自动配准和 resize。
+3. RGB 图像与 cube 必须同视角；RGB 高宽与 cube `(lines, samples)` 完全一致时直接推理，任一维度相差不超过 5 像素时自动将 RGB resize 到 cube 高宽后推理；超过 5 像素返回 `CUBE_IMAGE_SHAPE_MISMATCH`。不 resize cube，不做旋转、平移、裁剪或复杂配准。
 
 ## 输出
 

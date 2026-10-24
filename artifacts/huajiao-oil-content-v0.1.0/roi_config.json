@@ -1,0 +1,10 @@
+{
+  "require_same_shape": true,
+  "min_pepper_pixels": 100,
+  "min_coverage_ratio": 0.0001,
+  "max_coverage_ratio": 0.75,
+  "segmentation": {
+    "segmentation_mode": "color_texture",
+    "use_texture": true
+  }
+}

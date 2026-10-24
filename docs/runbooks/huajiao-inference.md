@@ -1,6 +1,6 @@
 # 花椒含油率推理 Runbook
 
-适用 artifact：`artifacts/huajiao-oil-content-dinov3-gray-otsu-refined-roi-v0.3.1`
+适用 artifact：`artifacts/huajiao-oil-content-dinov3-gray-otsu-refined-roi-v0.3.2`
 
 适用环境：`/home/yr/anaconda3/envs/hj`
 
@@ -11,10 +11,10 @@ cd /home/yr/yr/code/cv/oil_content_detection
 /home/yr/anaconda3/envs/hj/bin/python - <<'PY'
 from pathlib import Path
 for p in [
-    'artifacts/huajiao-oil-content-dinov3-gray-otsu-refined-roi-v0.3.1/model.joblib',
-    'artifacts/huajiao-oil-content-dinov3-gray-otsu-refined-roi-v0.3.1/manifest.json',
-    'artifacts/huajiao-oil-content-dinov3-gray-otsu-refined-roi-v0.3.1/feature_schema.json',
-    'artifacts/huajiao-oil-content-dinov3-gray-otsu-refined-roi-v0.3.1/roi_config.json',
+    'artifacts/huajiao-oil-content-dinov3-gray-otsu-refined-roi-v0.3.2/model.joblib',
+    'artifacts/huajiao-oil-content-dinov3-gray-otsu-refined-roi-v0.3.2/manifest.json',
+    'artifacts/huajiao-oil-content-dinov3-gray-otsu-refined-roi-v0.3.2/feature_schema.json',
+    'artifacts/huajiao-oil-content-dinov3-gray-otsu-refined-roi-v0.3.2/roi_config.json',
     'artifacts/huajiao-dinov3-roi-seg-v0.1.0/best_model.pt',
     'artifacts/huajiao-dinov3-roi-seg-v0.1.0/manifest.json',
 ]:
@@ -39,7 +39,7 @@ PY
 
 ```bash
 /home/yr/anaconda3/envs/hj/bin/python scripts/huajiao_predict.py \
-  --model-dir artifacts/huajiao-oil-content-dinov3-gray-otsu-refined-roi-v0.3.1 \
+  --model-dir artifacts/huajiao-oil-content-dinov3-gray-otsu-refined-roi-v0.3.2 \
   --image /path/to/sample.png \
   --hdr /path/to/capture/REFLECTANCE_sample.hdr \
   --sample-id sample-id \
@@ -52,6 +52,7 @@ PY
 - `/tmp/huajiao_prediction.json`: 结构化预测结果。
 - `/tmp/huajiao_debug/<sample>_dinov3_pepper_mask.png`: DINOv3 polygon 内 gray_otsu refined 二值 mask。
 - `/tmp/huajiao_debug/<sample>_dinov3_roi_overlay.png`: ROI overlay。
+- `/tmp/huajiao_debug/<sample>_aligned_to_cube.png`: 仅当 RGB/cube 高宽每维差值 <=5px 且触发自动 resize 时生成；ROI、overlay 和热力图都使用这张对齐 RGB 图。
 
 ## 3. 当前真实样本 smoke
 
@@ -62,7 +63,7 @@ PY
 ```bash
 mkdir -p /home/yr/yr/tmp/huajiao_dinov3_gray_otsu_refined_smoke_0346_11_v4/debug
 /home/yr/anaconda3/envs/hj/bin/python scripts/huajiao_predict.py \
-  --model-dir artifacts/huajiao-oil-content-dinov3-gray-otsu-refined-roi-v0.3.1 \
+  --model-dir artifacts/huajiao-oil-content-dinov3-gray-otsu-refined-roi-v0.3.2 \
   --image '/home/yr/yr/data/科研数据/湖北金宏椒2/0346_11/0346_11.png' \
   --hdr '/home/yr/yr/data/科研数据/湖北金宏椒2/0346_11/capture/REFLECTANCE_0346_11.hdr' \
   --sample-id 0346_11 \
@@ -88,7 +89,7 @@ mkdir -p /home/yr/yr/tmp/huajiao_dinov3_gray_otsu_refined_smoke_0346_11_v4/debug
 from oil_content_detection.inference import HuajiaoOilPredictor
 
 predictor = HuajiaoOilPredictor.from_artifact(
-    'artifacts/huajiao-oil-content-dinov3-gray-otsu-refined-roi-v0.3.1'
+    'artifacts/huajiao-oil-content-dinov3-gray-otsu-refined-roi-v0.3.2'
 )
 result = predictor.predict(
     image_path='/path/to/sample.png',
@@ -115,9 +116,9 @@ capture/REFLECTANCE_sample.dat
 
 ### 5.2 `CUBE_IMAGE_SHAPE_MISMATCH`
 
-原因：RGB 图像高宽与 cube `(lines, samples)` 不一致。
+原因：RGB 图像高宽与 cube `(lines, samples)` 的任一维度差值超过 5 像素，或自动对齐后 ROI mask 与 cube 仍不一致。
 
-处理：在采集/上传侧保证 RGB 与 cube 同视角同尺寸。当前推理代码故意不 resize，以避免 mask 和光谱像素错位。
+处理：确认 RGB 与 cube 是同视角采集；如果只是 1~5 像素的导出边界差，当前推理会自动 resize RGB 到 cube 高宽并在 `roi.info.shape_alignment`/`qc.warnings` 记录；如果超过 5 像素，需要在采集/导出侧重新生成更接近的 RGB/cube，服务端不会做复杂配准，也不会 resize cube。
 
 ### 5.3 `WAVELENGTH_SCHEMA_MISMATCH`
 

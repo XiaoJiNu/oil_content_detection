@@ -2,7 +2,7 @@
 
 本文档说明如何重新生成、校验和发布 DINOv3 coarse polygon + gray_otsu refined ROI + 含油率 deployable artifact。
 
-当前推荐候选发布目标：`artifacts/huajiao-oil-content-dinov3-gray-otsu-refined-roi-v0.3.1`
+当前推荐候选发布目标：`artifacts/huajiao-oil-content-dinov3-gray-otsu-refined-roi-v0.3.2`
 
 ## 1. 发布原则
 
@@ -40,8 +40,8 @@ artifacts/huajiao-dinov3-roi-seg-v0.1.0/
 cd /home/yr/yr/code/cv/oil_content_detection
 /home/yr/anaconda3/envs/hj/bin/python scripts/package_huajiao_model.py \
   --data-dir data/processed/huajiao_refined \
-  --out-dir artifacts/huajiao-oil-content-dinov3-gray-otsu-refined-roi-v0.3.1 \
-  --model-version huajiao-oil-content-dinov3-gray-otsu-refined-roi-v0.3.1 \
+  --out-dir artifacts/huajiao-oil-content-dinov3-gray-otsu-refined-roi-v0.3.2 \
+  --model-version huajiao-oil-content-dinov3-gray-otsu-refined-roi-v0.3.2 \
   --feature-source auto-roi-cube \
   --roi-backend dinov3 \
   --dinov3-roi-artifact artifacts/huajiao-dinov3-roi-seg-v0.1.0 \
@@ -66,7 +66,7 @@ cd /home/yr/yr/code/cv/oil_content_detection
 
 ## 4. 当前发布输出
 
-当前 `v0.3.1` 包含：
+当前 `v0.3.2` 包含：
 
 ```text
 model.joblib
@@ -86,13 +86,13 @@ training_features/val_dinov3_roi_features.csv
 
 | Split | n | R² | RMSE | MAE |
 | --- | ---: | ---: | ---: | ---: |
-| Train | 157 | 0.639776 | 0.265788 | 0.205741 |
-| Val | 40 | 0.777996 | 0.212330 | 0.170691 |
+| Train | 157 | 0.645112 | 0.263812 | 0.203680 |
+| Val | 40 | 0.800960 | 0.201049 | 0.162341 |
 
 当前 `model.joblib` SHA256：
 
 ```text
-51e05592b632f362226b3683d7b1a58d977822abc60f6f042780058079651206
+dbdafd38e061f581b583b9e21f8550d830df4bc7e0e55a56845a21486e43b2c0
 ```
 
 ## 5. 校验 artifact
@@ -103,7 +103,7 @@ training_features/val_dinov3_roi_features.csv
 /home/yr/anaconda3/envs/hj/bin/python - <<'PY'
 import json
 from pathlib import Path
-root = Path('artifacts/huajiao-oil-content-dinov3-gray-otsu-refined-roi-v0.3.1')
+root = Path('artifacts/huajiao-oil-content-dinov3-gray-otsu-refined-roi-v0.3.2')
 for name in ['manifest.json', 'metrics.json', 'roi_config.json']:
     print('\n---', name, '---')
     print(json.dumps(json.loads((root/name).read_text(encoding='utf-8')), ensure_ascii=False, indent=2))
@@ -116,7 +116,7 @@ PY
 /home/yr/anaconda3/envs/hj/bin/python - <<'PY'
 import json
 from pathlib import Path
-schema = json.loads(Path('artifacts/huajiao-oil-content-dinov3-gray-otsu-refined-roi-v0.3.1/feature_schema.json').read_text(encoding='utf-8'))
+schema = json.loads(Path('artifacts/huajiao-oil-content-dinov3-gray-otsu-refined-roi-v0.3.2/feature_schema.json').read_text(encoding='utf-8'))
 forbidden = {'distill_ml', 'oil_ml_per_gram', 'oil_ml_per_100g', 'weight_g', 'batch', 'sid_num'}
 selected = set(schema['feature_columns'])
 bad = sorted(forbidden & selected)
@@ -133,7 +133,7 @@ PY
 ```bash
 mkdir -p /home/yr/yr/tmp/huajiao_dinov3_gray_otsu_refined_smoke_0346_11_v4/debug
 /home/yr/anaconda3/envs/hj/bin/python scripts/huajiao_predict.py \
-  --model-dir artifacts/huajiao-oil-content-dinov3-gray-otsu-refined-roi-v0.3.1 \
+  --model-dir artifacts/huajiao-oil-content-dinov3-gray-otsu-refined-roi-v0.3.2 \
   --image '/home/yr/yr/data/科研数据/湖北金宏椒2/0346_11/0346_11.png' \
   --hdr '/home/yr/yr/data/科研数据/湖北金宏椒2/0346_11/capture/REFLECTANCE_0346_11.hdr' \
   --sample-id 0346_11 \
@@ -193,7 +193,7 @@ PY
 1. 确认 `metrics.json`、`manifest.json`、`model_card.md` 与实际 artifact 一致。
 2. 确认真实样本 smoke 成功。
 3. 确认文档中的 artifact 路径和指标更新。
-4. 确认应用团队使用 `huajiao-oil-content-dinov3-gray-otsu-refined-roi-v0.3.1`，而不是 coarse polygon v0.3.0 或精确复现 artifact。
+4. 确认应用团队使用 `huajiao-oil-content-dinov3-gray-otsu-refined-roi-v0.3.2`，而不是 coarse polygon v0.3.0 或精确复现 artifact。
 
 回滚：
 

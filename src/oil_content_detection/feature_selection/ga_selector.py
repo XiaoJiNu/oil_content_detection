@@ -56,8 +56,9 @@ class GeneticAlgorithmSelector:
         return mask
 
     @staticmethod
-    def _pls_components(feature_count: int, max_pls_components: int) -> int:
-        # limit components to maintain numerical stability
+    def _pls_components(feature_count: int, max_pls_components: int = 10) -> int:
+        # limit components to maintain numerical stability; keep the historical
+        # single-argument helper API capped at 10 components by default.
         if feature_count <= 2:
             return 1
         return min(max_pls_components, feature_count // 2)

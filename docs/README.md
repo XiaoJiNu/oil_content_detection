@@ -23,7 +23,8 @@
 
 | Artifact | 类型 | 状态 |
 | --- | --- | --- |
-| `artifacts/huajiao-oil-content-dinov3-gray-otsu-refined-roi-v0.3.1` | 含油率部署候选模型 | 当前推荐；RGB + ENVI cube；DINOv3 coarse polygon + gray_otsu refined ROI |
+| `artifacts/huajiao-oil-content-dinov3-gray-otsu-refined-roi-v0.3.2` | 含油率部署候选模型 | 当前推荐；RGB + ENVI cube；DINOv3 coarse polygon + gray_otsu refined ROI |
+| `artifacts/huajiao-oil-content-dinov3-gray-otsu-refined-roi-v0.3.1` | 含油率部署上一版候选模型 | DINOv3 coarse polygon + gray_otsu refined ROI，Val R²=0.777996；已被 v0.3.2 作为当前推荐替代 |
 | `artifacts/huajiao-oil-content-dinov3-roi-v0.3.0` | 含油率部署对照模型 | DINOv3 coarse polygon 口径；coverage 过大，已被 v0.3.1 refined 取代为首选候选 |
 | `artifacts/huajiao-dinov3-roi-seg-v0.1.0` | ROI 分割模型 | 当前 DINOv3 coarse polygon 后端 |
 | `artifacts/huajiao-report-20260505-snv-sg1-pls10-batch-quality-huber` | 精确复现/内部对照 | 不可作为只上传 RGB+cube 的应用部署模型 |
@@ -35,7 +36,7 @@
 - 精确复现模型为了复现报告指标，包含 `weight_g`、`batch`、`sid_num`。
 - 应用展示部署只上传 RGB 图像和 ENVI cube，无法提供重量、批次、样本编号等实验上下文字段。
 - 因此当前交付模型必须只使用上传文件可直接得到的 `wl_*` ROI 平均光谱和 ROI 质量特征。
-- DINOv3 coarse polygon 分割 Dice 高不等于下游含油率一定好；当前 v0.3.1 先用 DINOv3 定位 coarse polygon，再在 polygon 内做 gray_otsu 二次精分割，使 ROI coverage 回到 0.16-0.18 的合理区间。
+- DINOv3 coarse polygon 分割 Dice 高不等于下游含油率一定好；当前 v0.3.2 继续沿用 DINOv3 定位 coarse polygon，再在 polygon 内做 gray_otsu 二次精分割，使 ROI coverage 回到 0.16-0.18 的合理区间，并在模型内部增加可部署的光谱 summary/PLS 特征工程。
 
 ## 参考资料与实验记录
 

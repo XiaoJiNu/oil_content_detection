@@ -67,6 +67,20 @@ def _build_visualization_urls(
     }
 
 
+def _heatmap_image_path(
+    *, image_path: Path, prediction_payload: dict[str, Any]
+) -> Path:
+    """Prefer the predictor-produced aligned RGB image for heatmap generation."""
+
+    roi_payload = prediction_payload.get("roi") or {}
+    roi_info = roi_payload.get("info") or {}
+    shape_alignment = roi_info.get("shape_alignment") or {}
+    aligned_image_path = shape_alignment.get("aligned_image_path")
+    if aligned_image_path:
+        return Path(str(aligned_image_path))
+    return image_path
+
+
 def create_app(
     *,
     settings: HuajiaoWebSettings | None = None,
@@ -191,7 +205,11 @@ def create_app(
                             "ROI mask path is missing; cannot generate heatmap."
                         )
                     mask_image = cv2.imread(str(mask_path), cv2.IMREAD_GRAYSCALE)
-                    image_bgr = cv2.imread(str(image_path), cv2.IMREAD_COLOR)
+                    heatmap_image_path = _heatmap_image_path(
+                        image_path=image_path,
+                        prediction_payload=prediction_payload,
+                    )
+                    image_bgr = cv2.imread(str(heatmap_image_path), cv2.IMREAD_COLOR)
                     if mask_image is None or image_bgr is None:
                         raise ValueError(
                             "Failed to read image or ROI mask for heatmap generation."

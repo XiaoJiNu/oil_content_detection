@@ -1,0 +1,25 @@
+{
+  "preprocess": [
+    {
+      "name": "snv"
+    },
+    {
+      "name": "savgol",
+      "params": {
+        "window_length": 13,
+        "polyorder": 2,
+        "deriv": 1
+      }
+    }
+  ],
+  "representation": {
+    "type": "PLSScoreTransformer",
+    "n_components": 10,
+    "scale": false
+  },
+  "regressor": {
+    "type": "HuberRegressor",
+    "alpha": 0.001,
+    "max_iter": 2000
+  }
+}

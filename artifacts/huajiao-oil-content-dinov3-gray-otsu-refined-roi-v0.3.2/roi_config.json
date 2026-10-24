@@ -1,0 +1,33 @@
+{
+  "backend": "dinov3",
+  "require_same_shape": true,
+  "min_pepper_pixels": 100,
+  "min_coverage_ratio": 0.0001,
+  "max_coverage_ratio": 0.75,
+  "segmentation": {
+    "segmentation_mode": "hybrid",
+    "use_texture": true,
+    "hybrid_target_coverage_ratio": 0.17,
+    "hybrid_min_coverage_ratio": 0.05,
+    "hybrid_max_coverage_ratio": 0.35
+  },
+  "dinov3": {
+    "artifact_dir": "../huajiao-dinov3-roi-seg-v0.1.0",
+    "device": "cpu",
+    "mask_source": "dinov3_roi_segmentation",
+    "post_refinement": {
+      "enabled": true,
+      "segmentation_mode": "gray_otsu",
+      "pepper_open_size": 5,
+      "pepper_close_size": 5,
+      "hole_fill_max_area": 300,
+      "label_fallback_enabled": false,
+      "label_max_area_ratio": 0.0
+    }
+  },
+  "shape_alignment": {
+    "enabled": true,
+    "max_delta_px": 5,
+    "method": "resize_rgb_to_cube_hw"
+  }
+}

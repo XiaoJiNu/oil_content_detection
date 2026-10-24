@@ -2,7 +2,7 @@
 
 版本：2026-05-12
 
-适用 artifact：`artifacts/huajiao-oil-content-dinov3-gray-otsu-refined-roi-v0.3.1`
+适用 artifact：`artifacts/huajiao-oil-content-dinov3-gray-otsu-refined-roi-v0.3.2`
 
 ## 1. 目标
 
@@ -24,10 +24,11 @@
 
 约束：
 
-1. RGB 图像高宽必须与 ENVI cube `(lines, samples)` 一致。
-2. cube band 数必须与 artifact `feature_schema.json` 中的 224 个 `wl_*` 波段一致。
-3. 应用请求不能覆盖模型路径、DINOv3 checkpoint 路径或任意权重路径；`--model-dir`/`HUAJIAO_MODEL_DIR` 只允许由受信任运维在服务启动时配置。
-4. 默认单文件上传上限由 `HUAJIAO_MAX_UPLOAD_MB` 或 `--max-upload-mb` 控制，默认 2048 MiB。
+1. RGB 图像必须与 ENVI cube 同视角；RGB 高宽与 cube `(lines, samples)` 完全一致时直接推理，任一维度相差不超过 5 像素时服务自动将 RGB resize 到 cube 高宽后推理。
+2. 任一维度相差超过 5 像素时返回 `CUBE_IMAGE_SHAPE_MISMATCH`；服务不 resize cube，不做旋转、平移、裁剪或复杂配准。
+3. cube band 数必须与 artifact `feature_schema.json` 中的 224 个 `wl_*` 波段一致。
+4. 应用请求不能覆盖模型路径、DINOv3 checkpoint 路径或任意权重路径；`--model-dir`/`HUAJIAO_MODEL_DIR` 只允许由受信任运维在服务启动时配置。
+5. 默认单文件上传上限由 `HUAJIAO_MAX_UPLOAD_MB` 或 `--max-upload-mb` 控制，默认 2048 MiB。
 
 ## 3. HTTP API
 
@@ -39,7 +40,7 @@
 {
   "status": "ok",
   "model_loaded": true,
-  "model_version": "huajiao-oil-content-dinov3-gray-otsu-refined-roi-v0.3.1",
+  "model_version": "huajiao-oil-content-dinov3-gray-otsu-refined-roi-v0.3.2",
   "device": "cpu"
 }
 ```
@@ -58,8 +59,8 @@
     "target_name": "oil_ml_per_100g",
     "prediction": 1.883649238062088,
     "unit": "ml/100g",
-    "model_version": "huajiao-oil-content-dinov3-gray-otsu-refined-roi-v0.3.1",
-    "artifact_sha256": "51e05592b632f362226b3683d7b1a58d977822abc60f6f042780058079651206",
+    "model_version": "huajiao-oil-content-dinov3-gray-otsu-refined-roi-v0.3.2",
+    "artifact_sha256": "dbdafd38e061f581b583b9e21f8550d830df4bc7e0e55a56845a21486e43b2c0",
     "input_mode": "envi_cube_with_rgb_image",
     "roi": {
       "mask_source": "dinov3_roi_gray_otsu_refined",
@@ -70,7 +71,16 @@
       "valid_pixel_ratio": 1.0,
       "mask_path": "runtime/huajiao_web/outputs/.../debug/0346_11_dinov3_pepper_mask.png",
       "overlay_path": "runtime/huajiao_web/outputs/.../debug/0346_11_dinov3_roi_overlay.png",
-      "info": {}
+      "info": {
+        "shape_alignment": {
+          "resized": true,
+          "image_shape_hw": [1313, 1029],
+          "cube_shape_hw": [1310, 1024],
+          "delta_hw": [3, 5],
+          "max_delta_px": 5,
+          "aligned_image_path": "runtime/huajiao_web/outputs/.../debug/0346_11_aligned_to_cube.png"
+        }
+      }
     },
     "qc": {"status": "ok", "warnings": []}
   },
@@ -97,8 +107,8 @@
   "qc": {"status": "error", "warnings": []},
   "error": {
     "code": "CUBE_IMAGE_SHAPE_MISMATCH",
-    "message": "RGB image and hyperspectral cube must be the same view and same size.",
-    "details": {"image_shape_hw": [4, 5], "cube_shape_hw": [5, 5]}
+    "message": "RGB image and hyperspectral cube must be the same view; automatic RGB resize is allowed only when height and width differ by no more than 5 pixels.",
+    "details": {"image_shape_hw": [10, 5], "cube_shape_hw": [4, 5], "delta_hw": [6, 0], "max_allowed_delta_px": 5}
   }
 }
 ```
@@ -115,9 +125,9 @@ HTTP 状态：
 ## 4. 可视化语义
 
 1. `mask_url`：最终用于含油率预测的 ROI mask；当前推荐模型应为 `dinov3_roi_gray_otsu_refined`。
-2. `overlay_url`：ROI mask 叠加到 RGB 图像的检查图，用于人工确认 ROI 是否合理。
+2. `overlay_url`：ROI mask 叠加到实际参与 ROI 的 RGB 图像的检查图；若发生 <=5px 自动 resize，则使用对齐后的 RGB 图。
 3. `heatmap_url`：透明背景 PNG，显示模型对 ROI 内像素光谱的相对响应。
-4. `heatmap_overlay_url`：模型响应热力图叠加到 RGB 图像。
+4. `heatmap_overlay_url`：模型响应热力图叠加到实际参与 ROI/热力图生成的 RGB 图像。
 
 重要限制：热力图是“样本级回归模型对逐像素光谱的响应可视化”，用于展示和 QC，不是经过独立标定的逐像素真实含油率地面真值。
 
@@ -129,6 +139,7 @@ HTTP 状态：
 runtime/huajiao_web/uploads/<job_id>/
 runtime/huajiao_web/outputs/<job_id>/
   input/<uploaded-image>
+  debug/*_aligned_to_cube.png  # 仅发生 <=5px 自动 resize 时
   debug/*_dinov3_pepper_mask.png
   debug/*_dinov3_roi_overlay.png
   visualizations/oil_heatmap.png
@@ -148,4 +159,4 @@ runtime/huajiao_web/outputs/<job_id>/
 3. 响应 JSON 可用 `json.dumps(payload, allow_nan=False)` 严格序列化。
 4. 响应包含预测值、模型版本、ROI 质量指标和可打开的图片 URL。
 5. `prediction.json`、`response.json`、ROI mask/overlay 和热力图文件写入 job 输出目录。
-6. 输入 shape 不一致时返回结构化错误，不能静默 resize 或配准。
+6. 输入 RGB/cube 高宽一致或每维差值 <=5px 时可以成功预测；发生自动 resize 时响应中的 `prediction.roi.info.shape_alignment.resized=true`。任一维度差值 >5px 时返回结构化 `CUBE_IMAGE_SHAPE_MISMATCH`。

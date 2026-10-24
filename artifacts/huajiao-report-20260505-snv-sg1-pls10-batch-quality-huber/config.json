@@ -1,0 +1,37 @@
+{
+  "preprocess": [
+    {
+      "name": "snv"
+    },
+    {
+      "name": "savgol",
+      "params": {
+        "window_length": 13,
+        "polyorder": 2,
+        "deriv": 1
+      }
+    }
+  ],
+  "representation": {
+    "type": "PLSRegression",
+    "n_components": 10,
+    "scale": false
+  },
+  "regressor": {
+    "type": "HuberRegressor",
+    "alpha": 0.001,
+    "epsilon": 1.35,
+    "max_iter": 2000
+  },
+  "post_pls_scaler": "StandardScaler",
+  "meta_columns": [
+    "batch",
+    "coverage_ratio",
+    "log_valid_pixel_count",
+    "valid_pixel_ratio",
+    "weight_g",
+    "sid_num"
+  ],
+  "n_wavelength_features": 224,
+  "n_final_features": 48
+}

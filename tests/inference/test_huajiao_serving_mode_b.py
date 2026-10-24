@@ -167,12 +167,68 @@ def test_roi_metrics_to_dict_replaces_non_finite_info_values():
     json.dumps(payload, allow_nan=False)
 
 
-def test_validate_same_view_shape_reports_structured_error():
+def test_validate_same_view_shape_reports_structured_mask_cube_error():
     with pytest.raises(PredictionError) as excinfo:
         validate_same_view_shape(image_shape_hw=(10, 12), cube_shape_hw=(10, 11))
 
     assert excinfo.value.code == "CUBE_IMAGE_SHAPE_MISMATCH"
-    assert "same view" in excinfo.value.message
+    assert "after RGB/cube alignment" in excinfo.value.message
+
+
+def test_predictor_resizes_rgb_within_five_pixels_to_cube_shape(tmp_path: Path):
+    cube = np.ones((180, 140, 2), dtype=np.float32)
+    cube[..., 0] *= 3.0
+    cube[..., 1] *= 7.0
+    hdr_path = _write_envi_cube(tmp_path, cube)
+    image_path = _write_synthetic_rgb(tmp_path, height=183, width=145)
+    artifact_dir = _write_artifact(tmp_path, constant=1.23)
+
+    predictor = HuajiaoOilPredictor.from_artifact(artifact_dir)
+    result = predictor.predict(
+        image_path=image_path,
+        hdr_path=hdr_path,
+        sample_id="TEST_ALIGN",
+        debug_dir=tmp_path / "debug_align",
+    )
+
+    payload = result.to_dict()
+    shape_alignment = payload["roi"]["info"]["shape_alignment"]
+    assert payload["prediction"] == pytest.approx(1.23)
+    assert payload["qc"]["status"] == "ok"
+    assert any("resized to ENVI cube shape" in warning for warning in payload["qc"]["warnings"])
+    assert shape_alignment["method"] == "resize_rgb_to_cube_hw"
+    assert shape_alignment["resized"] is True
+    assert shape_alignment["image_shape_hw"] == [183, 145]
+    assert shape_alignment["cube_shape_hw"] == [180, 140]
+    assert shape_alignment["delta_hw"] == [3, 5]
+    assert shape_alignment["max_delta_px"] == 5
+    aligned_path = Path(shape_alignment["aligned_image_path"])
+    assert aligned_path.exists()
+    assert cv2.imread(str(aligned_path), cv2.IMREAD_COLOR).shape[:2] == (180, 140)
+    assert cv2.imread(payload["roi"]["mask_path"], cv2.IMREAD_GRAYSCALE).shape == (180, 140)
+    assert cv2.imread(payload["roi"]["overlay_path"], cv2.IMREAD_COLOR).shape[:2] == (180, 140)
+
+
+def test_predictor_rejects_rgb_cube_shape_delta_over_five_pixels(tmp_path: Path):
+    cube = np.ones((180, 140, 2), dtype=np.float32)
+    hdr_path = _write_envi_cube(tmp_path, cube)
+    image_path = _write_synthetic_rgb(tmp_path, height=186, width=140)
+    artifact_dir = _write_artifact(tmp_path, constant=1.23)
+
+    predictor = HuajiaoOilPredictor.from_artifact(artifact_dir)
+    with pytest.raises(PredictionError) as excinfo:
+        predictor.predict(
+            image_path=image_path,
+            hdr_path=hdr_path,
+            sample_id="TEST_TOO_FAR",
+            debug_dir=tmp_path / "debug_too_far",
+        )
+
+    assert excinfo.value.code == "CUBE_IMAGE_SHAPE_MISMATCH"
+    assert excinfo.value.details["image_shape_hw"] == (186, 140)
+    assert excinfo.value.details["cube_shape_hw"] == (180, 140)
+    assert excinfo.value.details["delta_hw"] == (6, 0)
+    assert excinfo.value.details["max_allowed_delta_px"] == 5
 
 
 def test_extract_roi_spectrum_features_uses_mask_and_quality_columns():
@@ -311,6 +367,85 @@ def test_predictor_can_use_dinov3_roi_backend_with_relative_artifact_path(
     assert payload["roi"]["info"]["dinov3_threshold"] == pytest.approx(0.5)
     assert Path(payload["roi"]["mask_path"]).exists()
     assert Path(payload["roi"]["overlay_path"]).exists()
+
+
+def test_dinov3_predictor_receives_rgb_aligned_to_cube_shape(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+):
+    cube = np.ones((120, 120, 2), dtype=np.float32)
+    hdr_path = _write_envi_cube(tmp_path, cube)
+    image_path = _write_synthetic_rgb(tmp_path, height=123, width=125)
+    artifact_dir = _write_artifact(
+        tmp_path,
+        constant=3.45,
+        roi_config={
+            "backend": "dinov3",
+            "require_same_shape": True,
+            "min_pepper_pixels": 1,
+            "min_coverage_ratio": 0.0,
+            "max_coverage_ratio": 1.0,
+            "dinov3": {"artifact_dir": "roi_model", "device": "cpu"},
+        },
+    )
+    (artifact_dir / "roi_model").mkdir()
+
+    class FakeDinoV3ROIPredictor:
+        received_image_shape_hw: tuple[int, int] | None = None
+        received_image_path: Path | None = None
+
+        @classmethod
+        def from_artifact(
+            cls, artifact_dir: str | Path, device: str | None = None
+        ) -> "FakeDinoV3ROIPredictor":
+            return cls()
+
+        def predict_image(
+            self,
+            image_path: str | Path,
+            sample_id: str | None = None,
+            out_mask_path: str | Path | None = None,
+            overlay_path: str | Path | None = None,
+        ) -> SimpleNamespace:
+            image = cv2.imread(str(image_path), cv2.IMREAD_COLOR)
+            assert image is not None
+            FakeDinoV3ROIPredictor.received_image_shape_hw = image.shape[:2]
+            FakeDinoV3ROIPredictor.received_image_path = Path(image_path)
+            mask = np.zeros(image.shape[:2], dtype=bool)
+            mask[: image.shape[0] // 2, :] = True
+            if out_mask_path is not None:
+                cv2.imwrite(str(out_mask_path), (mask.astype(np.uint8) * 255))
+            if overlay_path is not None:
+                cv2.imwrite(str(overlay_path), image)
+            return SimpleNamespace(
+                sample_id=sample_id,
+                mask=mask,
+                probability=mask.astype(np.float32),
+                threshold=0.5,
+                coverage_ratio=float(mask.mean()),
+                mask_path=str(out_mask_path) if out_mask_path is not None else None,
+                overlay_path=str(overlay_path) if overlay_path is not None else None,
+            )
+
+    monkeypatch.setattr(
+        predictor_module,
+        "_load_dinov3_predictor_class",
+        lambda: FakeDinoV3ROIPredictor,
+    )
+
+    predictor = HuajiaoOilPredictor.from_artifact(artifact_dir)
+    result = predictor.predict(
+        image_path=image_path,
+        hdr_path=hdr_path,
+        sample_id="TEST_DINO_ALIGN",
+        debug_dir=tmp_path / "debug_dino_align",
+    )
+
+    payload = result.to_dict()
+    assert FakeDinoV3ROIPredictor.received_image_shape_hw == (120, 120)
+    assert FakeDinoV3ROIPredictor.received_image_path is not None
+    assert FakeDinoV3ROIPredictor.received_image_path.name.endswith("_aligned_to_cube.png")
+    assert payload["roi"]["info"]["shape_alignment"]["resized"] is True
+    assert payload["roi"]["pepper_pixels"] == 7200
 
 
 def test_predictor_applies_dinov3_post_refinement_inside_polygon(

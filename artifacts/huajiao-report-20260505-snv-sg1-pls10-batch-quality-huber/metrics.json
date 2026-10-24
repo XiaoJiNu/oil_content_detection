@@ -1,0 +1,30 @@
+{
+  "target": "oil_ml_per_100g",
+  "unit": "ml/100g",
+  "data_dir": "/home/yr/yr/code/cv/oil_content_detection/data/processed/huajiao_refined",
+  "source_report": "docs/reference_docs/实验记录/花椒含油率模型实验进展报告_20260505.md",
+  "strictness": "formal_val_model_fit_on_train_only; reproduces the 2026-05-05 report model exactly, including weight_g/batch/sid_num features",
+  "train": {
+    "n": 157,
+    "r2": 0.7529850181272297,
+    "rmse": 0.22009539569519182,
+    "mae": 0.14846372890054768
+  },
+  "val": {
+    "n": 40,
+    "r2": 0.8502290629192442,
+    "rmse": 0.17439983308189466,
+    "mae": 0.1448869339723355
+  },
+  "report_reference": {
+    "val_r2": 0.8502290629192442,
+    "val_rmse": 0.17439983308189466,
+    "val_mae": 0.1448869339723355
+  },
+  "existing_prediction_comparison": {
+    "existing_path": "/home/yr/yr/code/cv/oil_content_detection/results/huajiao_formal_snv_sg1_pls10_batch_quality_huber_20260504/val_predictions.csv",
+    "matched_rows": 40,
+    "max_abs_prediction_diff": 2.220446049250313e-16,
+    "max_abs_actual_diff": 4.440892098500626e-16
+  }
+}

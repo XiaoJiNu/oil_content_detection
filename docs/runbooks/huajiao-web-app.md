@@ -1,6 +1,6 @@
 # 花椒含油率 Web 应用 Runbook
 
-适用 artifact：`artifacts/huajiao-oil-content-dinov3-gray-otsu-refined-roi-v0.3.1`
+适用 artifact：`artifacts/huajiao-oil-content-dinov3-gray-otsu-refined-roi-v0.3.2`
 
 适用环境：`/home/yr/anaconda3/envs/hj`
 
@@ -24,7 +24,7 @@ cd /home/yr/yr/code/cv/oil_content_detection
 ```bash
 cd /home/yr/yr/code/cv/oil_content_detection
 /home/yr/anaconda3/envs/hj/bin/python scripts/huajiao_web.py \
-  --model-dir artifacts/huajiao-oil-content-dinov3-gray-otsu-refined-roi-v0.3.1 \
+  --model-dir artifacts/huajiao-oil-content-dinov3-gray-otsu-refined-roi-v0.3.2 \
   --host 0.0.0.0 \
   --port 8000 \
   --upload-root runtime/huajiao_web/uploads \
@@ -85,7 +85,7 @@ from oil_content_detection.service.settings import HuajiaoWebSettings
 
 root = Path('/home/yr/yr/code/cv/oil_content_detection')
 settings = HuajiaoWebSettings(
-    model_dir=root / 'artifacts/huajiao-oil-content-dinov3-gray-otsu-refined-roi-v0.3.1',
+    model_dir=root / 'artifacts/huajiao-oil-content-dinov3-gray-otsu-refined-roi-v0.3.2',
     upload_root=root / 'runtime/huajiao_web_smoke/uploads',
     output_root=root / 'runtime/huajiao_web_smoke/outputs',
     heatmap_max_pixels=50000,
@@ -131,9 +131,9 @@ PY
 
 ### 5.3 上传后返回 `CUBE_IMAGE_SHAPE_MISMATCH`
 
-原因：RGB 图像高宽和 ENVI cube 高宽不一致。
+原因：RGB 图像高宽和 ENVI cube `(lines, samples)` 的任一维度差值超过 5 像素，或自动对齐后 ROI mask 与 cube 仍不一致。
 
-处理：重新导出同视角同尺寸数据。服务端故意不 resize，因为 resize 会导致 ROI mask 和 cube 像素错位。
+处理：确认上传的 RGB 与 `.hdr/.dat` 是同一次采集/同视角；1~5 像素的小差异会由服务自动 resize RGB 到 cube 高宽，响应中的 `prediction.roi.info.shape_alignment` 会记录原始高宽、cube 高宽、差值和 `aligned_image_path`；超过 5 像素需要重新导出或裁剪源数据，服务不会 resize cube 或做复杂配准。
 
 ### 5.4 热力图未生成但预测成功
 

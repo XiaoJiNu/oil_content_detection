@@ -185,12 +185,94 @@ def test_predict_upload_saves_job_outputs_and_returns_visualization_urls(
     assert Path(predictor.calls[0]["hdr_path"]).with_suffix(".dat").exists()
 
 
+def test_predict_heatmap_uses_aligned_image_path_when_predictor_resizes(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+):
+    from types import SimpleNamespace
+
+    from oil_content_detection.service import app as app_module
+
+    class AlignedImagePredictor(FakePredictor):
+        def predict(self, **kwargs):  # type: ignore[no-untyped-def]
+            result = super().predict(**kwargs)
+            debug_dir = Path(kwargs["debug_dir"])
+            aligned_image_path = debug_dir / "demo-heatmap_aligned_to_cube.png"
+            cv2.imwrite(str(aligned_image_path), np.full((4, 5, 3), 90, dtype=np.uint8))
+            return PredictionResult(
+                sample_id=result.sample_id,
+                target_name=result.target_name,
+                prediction=result.prediction,
+                unit=result.unit,
+                model_version=result.model_version,
+                artifact_sha256=result.artifact_sha256,
+                input_mode=result.input_mode,
+                roi=ROIMetrics(
+                    mask_source=result.roi.mask_source,
+                    pepper_pixels=result.roi.pepper_pixels,
+                    pixel_count=result.roi.pixel_count,
+                    valid_pixel_count=result.roi.valid_pixel_count,
+                    coverage_ratio=result.roi.coverage_ratio,
+                    valid_pixel_ratio=result.roi.valid_pixel_ratio,
+                    mask_path=result.roi.mask_path,
+                    overlay_path=result.roi.overlay_path,
+                    info={
+                        "shape_alignment": {
+                            "resized": True,
+                            "aligned_image_path": str(aligned_image_path),
+                        }
+                    },
+                ),
+                qc=result.qc,
+            )
+
+    captured: dict[str, tuple[int, int]] = {}
+
+    def fake_generate_oil_response_heatmap(**kwargs):  # type: ignore[no-untyped-def]
+        captured["image_shape_hw"] = kwargs["image_bgr"].shape[:2]
+        output_dir = Path(kwargs["output_dir"])
+        output_dir.mkdir(parents=True, exist_ok=True)
+        heatmap_path = output_dir / "oil_heatmap.png"
+        overlay_path = output_dir / "oil_heatmap_overlay.png"
+        stats_path = output_dir / "oil_heatmap_stats.json"
+        cv2.imwrite(str(heatmap_path), np.full((4, 5, 4), 255, dtype=np.uint8))
+        cv2.imwrite(str(overlay_path), np.full((4, 5, 3), 128, dtype=np.uint8))
+        stats_path.write_text("{}\n", encoding="utf-8")
+        return SimpleNamespace(
+            to_dict=lambda: {
+                "heatmap_path": str(heatmap_path),
+                "overlay_path": str(overlay_path),
+                "stats_path": str(stats_path),
+            }
+        )
+
+    monkeypatch.setattr(
+        app_module, "generate_oil_response_heatmap", fake_generate_oil_response_heatmap
+    )
+    app = create_app(
+        settings=_settings(tmp_path), predictor_factory=lambda _: AlignedImagePredictor()
+    )
+    client = TestClient(app)
+    image_path, hdr_path, dat_path = _write_upload_files(tmp_path)
+    cv2.imwrite(str(image_path), np.full((5, 5, 3), 80, dtype=np.uint8))
+
+    response = client.post(
+        "/api/predict",
+        data={"sample_id": "demo-heatmap", "generate_heatmap": "true"},
+        files=_multipart_files(image_path, hdr_path, dat_path),
+    )
+
+    assert response.status_code == 200
+    assert captured["image_shape_hw"] == (4, 5)
+    payload = response.json()
+    assert payload["visualizations"]["heatmap_url"].endswith("oil_heatmap.png")
+
+
 def test_predict_returns_structured_prediction_error(tmp_path: Path):
     class FailingPredictor(FakePredictor):
         def predict(self, **kwargs):  # type: ignore[no-untyped-def]
             raise PredictionError(
                 "CUBE_IMAGE_SHAPE_MISMATCH",
-                "RGB image and hyperspectral cube must be the same view and same size.",
+                "RGB image and hyperspectral cube must be the same view; automatic RGB resize is allowed only when height and width differ by no more than 5 pixels.",
                 {"image_shape_hw": [4, 5], "cube_shape_hw": [5, 5]},
             )
 

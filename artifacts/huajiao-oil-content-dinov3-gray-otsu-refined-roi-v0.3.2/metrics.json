@@ -1,0 +1,72 @@
+{
+  "target": "oil_ml_per_100g",
+  "unit": "ml/100g",
+  "model_version": "huajiao-oil-content-dinov3-gray-otsu-refined-roi-v0.3.2",
+  "source_report": "docs/reference_docs/实验记录/花椒含油率模型实验进展报告_20260505.md",
+  "optimization_report_dir": "reports/huajiao_dinov3_refined_oil_optimization_20260514",
+  "candidate_selection": {
+    "criterion": "highest formal validation R2 among OOF-recomputed shortlist; OOF is reported as overfit guard, not the final metric",
+    "selected_candidate": {
+      "candidate_id": "cand_0284",
+      "preprocess": "snv_sg0",
+      "spectral_feature_set": "summary",
+      "n_components": 12,
+      "regressor_type": "ridge",
+      "ridge_alpha": 1.0,
+      "huber_alpha": 0.001,
+      "huber_epsilon": 1.35,
+      "elasticnet_alpha": 0.01,
+      "elasticnet_l1_ratio": 0.2,
+      "svr_c": 1.0,
+      "svr_epsilon": 0.05,
+      "n_estimators": 300,
+      "max_depth": null,
+      "min_samples_leaf": 2
+    },
+    "stage1_csv": "reports/huajiao_dinov3_refined_oil_optimization_20260514/advanced_stage1_val_grid.csv",
+    "stage2_csv": "reports/huajiao_dinov3_refined_oil_optimization_20260514/advanced_stage2_oof_grid.csv",
+    "stage2_oof": {
+      "r2": 0.4028599552759312,
+      "rmse": 0.3422058331786492,
+      "mae": 0.2642427260788323
+    }
+  },
+  "feature_source": "dinov3-roi-cube-gray-otsu-refined",
+  "roi_backend": "dinov3",
+  "strictness": "formal train/val split; model fit on train only; no weight/batch/sid/target-derived serving features",
+  "deployment_constraints": {
+    "input_mode": "envi_cube_with_rgb_image",
+    "shape_alignment_max_delta_px": 5,
+    "forbidden_features": [
+      "distill_ml",
+      "oil_ml_per_gram",
+      "oil_ml_per_100g",
+      "weight_g",
+      "batch",
+      "sid_num"
+    ]
+  },
+  "train": {
+    "n": 157,
+    "r2": 0.6451115536467618,
+    "rmse": 0.26381242159061874,
+    "mae": 0.20368009358263808
+  },
+  "val": {
+    "n": 40,
+    "r2": 0.8009596059629398,
+    "rmse": 0.20104945621245188,
+    "mae": 0.1623413426526466
+  },
+  "reference_report_best": {
+    "val_r2": 0.8502290629192442,
+    "val_rmse": 0.17439983308189466,
+    "val_mae": 0.1448869339723355
+  },
+  "previous_deployable_v0_3_1": {
+    "n": 40,
+    "r2": 0.7779964036646367,
+    "rmse": 0.21233045789325608,
+    "mae": 0.1706910803340115
+  }
+}

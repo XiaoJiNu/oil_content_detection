@@ -24,5 +24,10 @@
       "label_fallback_enabled": false,
       "label_max_area_ratio": 0.0
     }
+  },
+  "shape_alignment": {
+    "enabled": true,
+    "max_delta_px": 5,
+    "method": "resize_rgb_to_cube_hw"
   }
 }

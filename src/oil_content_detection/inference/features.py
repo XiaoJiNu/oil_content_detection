@@ -13,12 +13,12 @@ QUALITY_FEATURES = {"coverage_ratio", "log_valid_pixel_count", "valid_pixel_rati
 
 
 def validate_same_view_shape(image_shape_hw: tuple[int, int], cube_shape_hw: tuple[int, int]) -> None:
-    """Require RGB image and hyperspectral cube to be same view and same size."""
+    """Require ROI mask/image plane and hyperspectral cube to share height/width."""
 
     if tuple(image_shape_hw) != tuple(cube_shape_hw):
         raise PredictionError(
             "CUBE_IMAGE_SHAPE_MISMATCH",
-            "RGB image and hyperspectral cube must be the same view and same size; automatic registration/resize is disabled.",
+            "ROI mask and hyperspectral cube must have the same height/width after RGB/cube alignment.",
             {"image_shape_hw": tuple(image_shape_hw), "cube_shape_hw": tuple(cube_shape_hw)},
         )
 

@@ -1,20 +1,20 @@
 # 花椒含油率 DINOv3 ROI 推理架构
 
-本文档描述当前推荐的 RGB 图像 + ENVI 高光谱 cube 推理工程包：`artifacts/huajiao-oil-content-dinov3-gray-otsu-refined-roi-v0.3.1`。该 artifact 使用 DINOv3 coarse polygon 定位，再在 polygon 内执行 gray_otsu 二次精分割，最终用 refined mask 聚合 cube 光谱。
+本文档描述当前推荐的 RGB 图像 + ENVI 高光谱 cube 推理工程包：`artifacts/huajiao-oil-content-dinov3-gray-otsu-refined-roi-v0.3.2`。该 artifact 使用 DINOv3 coarse polygon 定位，再在 polygon 内执行 gray_otsu 二次精分割，最终用 refined mask 聚合 cube 光谱。
 
 ## 目标与非目标
 
 目标：
 
-1. 应用团队上传同视角、同尺寸 RGB 图像和 ENVI `.hdr/.dat` cube。
+1. 应用团队上传同视角 RGB 图像和 ENVI `.hdr/.dat` cube；RGB 高宽与 cube `(lines, samples)` 完全一致或每个维度相差不超过 5 像素。
 2. 系统自动调用 DINOv3 ROI 分割模型得到 coarse polygon mask，并在 polygon 内执行 gray_otsu refinement 得到最终花椒 mask。
 3. 系统从 cube 的 mask 区域提取平均光谱和 ROI 质量特征。
 4. 系统调用含油率回归模型输出结构化 JSON。
 
 非目标：
 
-1. 不做 RGB/cube 自动配准。
-2. 不做 resize 来强行对齐输入。
+1. 不做旋转、平移、裁剪、特征点匹配或非线性配准。
+2. 不 resize ENVI cube；cube `(lines, samples)` 始终是光谱聚合的基准。
 3. 不接收应用侧上传任意 checkpoint 路径。
 4. 不把需要 `weight_g`、`batch`、`sid_num` 的精确复现模型暴露为“只上传 RGB+cube”的部署模型。
 
@@ -22,7 +22,7 @@
 
 | Artifact | 用途 | 说明 |
 | --- | --- | --- |
-| `artifacts/huajiao-oil-content-dinov3-gray-otsu-refined-roi-v0.3.1` | 当前推荐含油率部署候选模型 | `feature_source=dinov3-roi-cube`，`roi_backend=dinov3`，`post_refinement=gray_otsu` |
+| `artifacts/huajiao-oil-content-dinov3-gray-otsu-refined-roi-v0.3.2` | 当前推荐含油率部署候选模型 | `feature_source=dinov3-roi-cube-gray-otsu-refined`，`roi_backend=dinov3`，`post_refinement=gray_otsu`，内部 `AdvancedHuajiaoRegressor` 光谱 summary 特征 |
 | `artifacts/huajiao-dinov3-roi-seg-v0.1.0` | DINOv3 ROI 分割模型 | Val mean Dice≈0.975292，mean IoU≈0.951880 |
 | `artifacts/huajiao-report-20260505-snv-sg1-pls10-batch-quality-huber` | 精确复现/内部对照 | 包含 `weight_g/batch/sid_num`，不可作为应用上传部署模型 |
 
@@ -30,8 +30,8 @@
 
 | Split | n | R² | RMSE | MAE |
 | --- | ---: | ---: | ---: | ---: |
-| Train | 157 | 0.639776 | 0.265788 | 0.205741 |
-| Val | 40 | 0.777996 | 0.212330 | 0.170691 |
+| Train | 157 | 0.645112 | 0.263812 | 0.203680 |
+| Val | 40 | 0.800960 | 0.201049 | 0.162341 |
 
 ## 模块数据流
 
@@ -42,15 +42,17 @@ ENVI cube (.hdr/.dat) ─┘
         │
         ├─ load_rgb_image_bgr()
         ├─ load_envi_cube()
-        ├─ validate_same_view_shape()
-        │     └─ 不一致时抛出 CUBE_IMAGE_SHAPE_MISMATCH
+        ├─ align_rgb_image_to_cube_shape()
+        │     ├─ RGB 与 cube 高宽一致：直接使用原图
+        │     ├─ 每维差值 <= 5px：resize RGB 到 cube 高宽，写 *_aligned_to_cube.png
+        │     └─ 任一维差值 > 5px：抛出 CUBE_IMAGE_SHAPE_MISMATCH
         │
         ├─ DINOv3 ROI backend
         │     ├─ roi_config.json: backend=dinov3
         │     ├─ 解析 dinov3.artifact_dir，相对 oil artifact 目录
         │     ├─ DinoV3ROIPredictor.from_artifact()
         │     ├─ sha256 校验 best_model.pt 与 backbone weights
-        │     ├─ predict_image() -> 原图尺寸 coarse polygon boolean mask
+        │     ├─ predict_image() -> 对齐后 RGB 尺寸 coarse polygon boolean mask
         │     ├─ dinov3.post_refinement.enabled=true
         │     └─ refine_mask_in_roi_if_configured(gray_otsu) -> final refined mask
         │
@@ -61,7 +63,7 @@ ENVI cube (.hdr/.dat) ─┘
         │     └─ valid_pixel_ratio
         │
         ├─ feature_row_to_frame()
-        ├─ model.joblib predict()
+        ├─ model.joblib predict()  # v0.3.2 内部做光谱 summary/PLS 特征工程
         └─ PredictionResult.to_dict()
 ```
 
@@ -71,6 +73,7 @@ ENVI cube (.hdr/.dat) ─┘
 | --- | --- |
 | `src/oil_content_detection/inference/predictor.py` | 公共 Predictor；根据 `roi_config.backend` 分流 traditional/DINOv3 ROI |
 | `src/oil_content_detection/inference/artifact.py` | 加载 `model.joblib`、`manifest.json`、`feature_schema.json`、`roi_config.json`，拒绝部署禁用特征 |
+| `src/oil_content_detection/inference/advanced_training.py` | v0.3.2 的可部署回归器；对 `wl_*` 和 ROI 质量字段做内部光谱 summary/PLS 特征工程，不要求应用侧额外上传字段 |
 | `src/oil_content_detection/inference/features.py` | 校验 RGB/cube/mask 形状，提取 ROI 光谱和质量特征 |
 | `src/oil_content_detection/inference/roi.py` | 传统 ROI wrapper、DINOv3 polygon 内 post-refinement helper 与 ROI 质量门 |
 | `src/oil_content_detection/inference/heatmap.py` | 使用回归模型对 ROI 像素光谱生成模型响应热力图和 overlay |
@@ -137,6 +140,11 @@ training_features/val_dinov3_roi_features.csv
       "label_fallback_enabled": false,
       "label_max_area_ratio": 0.0
     }
+  },
+  "shape_alignment": {
+    "enabled": true,
+    "max_delta_px": 5,
+    "method": "resize_rgb_to_cube_hw"
   }
 }
 ```
@@ -145,7 +153,7 @@ training_features/val_dinov3_roi_features.csv
 
 1. `image_path`: OpenCV/PIL 可读取的 RGB 图像。
 2. `hdr_path`: ENVI `.hdr`，旁边必须有匹配 `.dat`。
-3. 图像高宽必须等于 cube `(lines, samples)`。
+3. RGB 高宽必须等于 cube `(lines, samples)`，或每个维度差值不超过 5 像素；<=5 像素时只 resize RGB 到 cube 高宽，>5 像素返回 `CUBE_IMAGE_SHAPE_MISMATCH`。
 4. cube band 数必须等于 `feature_schema.json` 中波段列数。
 5. 设备和 DINOv3 权重路径由受信任 artifact 固定；应用请求不得覆盖。
 
@@ -159,8 +167,8 @@ training_features/val_dinov3_roi_features.csv
   "target_name": "oil_ml_per_100g",
   "prediction": 1.883649238062088,
   "unit": "ml/100g",
-  "model_version": "huajiao-oil-content-dinov3-gray-otsu-refined-roi-v0.3.1",
-  "artifact_sha256": "51e05592b632f362226b3683d7b1a58d977822abc60f6f042780058079651206",
+  "model_version": "huajiao-oil-content-dinov3-gray-otsu-refined-roi-v0.3.2",
+  "artifact_sha256": "dbdafd38e061f581b583b9e21f8550d830df4bc7e0e55a56845a21486e43b2c0",
   "input_mode": "envi_cube_with_rgb_image",
   "roi": {
     "mask_source": "dinov3_roi_gray_otsu_refined",
@@ -169,7 +177,17 @@ training_features/val_dinov3_roi_features.csv
     "valid_pixel_count": 194791,
     "valid_pixel_ratio": 1.0,
     "mask_path": "/tmp/.../0346_11_dinov3_pepper_mask.png",
-    "overlay_path": "/tmp/.../0346_11_dinov3_roi_overlay.png"
+    "overlay_path": "/tmp/.../0346_11_dinov3_roi_overlay.png",
+    "info": {
+      "shape_alignment": {
+        "resized": false,
+        "image_shape_hw": [1310, 1024],
+        "cube_shape_hw": [1310, 1024],
+        "delta_hw": [0, 0],
+        "max_delta_px": 5,
+        "method": "resize_rgb_to_cube_hw"
+      }
+    }
   },
   "qc": {"status": "ok", "warnings": []}
 }

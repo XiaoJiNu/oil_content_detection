@@ -3,8 +3,10 @@
 from __future__ import annotations
 
 from pathlib import Path
+import tempfile
 from typing import Any
 
+import cv2
 import numpy as np
 
 from oil_content_detection.acquisition.envi_reader import load_envi_cube
@@ -13,7 +15,6 @@ from .artifact import ModelArtifact, load_model_artifact
 from .features import (
     extract_roi_spectrum_features,
     feature_row_to_frame,
-    validate_same_view_shape,
 )
 from .roi import (
     enforce_roi_quality,
@@ -26,6 +27,8 @@ from .schema import PredictionError, PredictionResult, QCResult
 
 TRADITIONAL_ROI_BACKEND = "traditional"
 DINOV3_ROI_BACKEND = "dinov3"
+DEFAULT_RGB_CUBE_ALIGNMENT_MAX_DELTA_PX = 5
+RGB_CUBE_ALIGNMENT_METHOD = "resize_rgb_to_cube_hw"
 
 
 def _load_dinov3_predictor_class() -> type:
@@ -58,6 +61,140 @@ def _resolve_artifact_relative_path(base_dir: Path, raw_path: str | Path) -> Pat
     if path.is_absolute():
         return path
     return (base_dir / path).resolve()
+
+
+def _shape_alignment_config(roi_config: dict[str, Any] | None) -> dict[str, Any]:
+    """Return the serving shape-alignment policy from roi_config.json.
+
+    Historical artifacts only had ``require_same_shape=true``. The current serving
+    policy keeps the same-view requirement but allows a small RGB-vs-cube size
+    tolerance, so missing ``shape_alignment`` defaults to enabled with a 5 px
+    per-dimension threshold.
+    """
+
+    cfg = dict(roi_config or {})
+    raw_shape_cfg = cfg.get("shape_alignment")
+    shape_cfg = raw_shape_cfg if isinstance(raw_shape_cfg, dict) else {}
+    enabled = bool(shape_cfg.get("enabled", True))
+    max_delta_px = int(
+        shape_cfg.get(
+            "max_delta_px",
+            cfg.get("max_rgb_cube_shape_delta_px", DEFAULT_RGB_CUBE_ALIGNMENT_MAX_DELTA_PX),
+        )
+    )
+    return {
+        "enabled": enabled,
+        "max_delta_px": max(0, max_delta_px),
+        "method": str(shape_cfg.get("method", RGB_CUBE_ALIGNMENT_METHOD)),
+    }
+
+
+def _write_aligned_rgb_image(
+    *, image_bgr: np.ndarray, image_stem: str, debug_dir: str | Path | None
+) -> Path:
+    """Persist a resized RGB image so path-based ROI backends can read it."""
+
+    if debug_dir is not None:
+        out_dir = Path(debug_dir)
+        out_dir.mkdir(parents=True, exist_ok=True)
+        out_path = out_dir / f"{image_stem}_aligned_to_cube.png"
+    else:
+        handle = tempfile.NamedTemporaryFile(
+            prefix=f"{image_stem}_aligned_to_cube_", suffix=".png", delete=False
+        )
+        out_path = Path(handle.name)
+        handle.close()
+    cv2.imwrite(str(out_path), image_bgr)
+    return out_path
+
+
+def _align_rgb_image_to_cube_shape(
+    *,
+    image_bgr: np.ndarray,
+    image_path: Path,
+    cube_shape_hw: tuple[int, int],
+    image_stem: str,
+    roi_config: dict[str, Any] | None,
+    debug_dir: str | Path | None,
+) -> tuple[np.ndarray, Path, dict[str, Any], list[str]]:
+    """Align an RGB image to cube height/width when the mismatch is small.
+
+    The cube is never resized because spectral aggregation indexes cube pixels.
+    When the RGB height/width differs by at most the configured per-dimension
+    threshold, the RGB image is resized to ``cube_shape_hw`` and all downstream
+    ROI/visualization code uses that aligned RGB image.
+    """
+
+    image_shape_hw = tuple(int(v) for v in image_bgr.shape[:2])
+    cube_shape_hw = tuple(int(v) for v in cube_shape_hw)
+    delta_hw = (
+        abs(image_shape_hw[0] - cube_shape_hw[0]),
+        abs(image_shape_hw[1] - cube_shape_hw[1]),
+    )
+    policy = _shape_alignment_config(roi_config)
+    max_delta_px = int(policy["max_delta_px"])
+    base_info: dict[str, Any] = {
+        "enabled": bool(policy["enabled"]),
+        "method": policy["method"],
+        "resized": False,
+        "image_shape_hw": list(image_shape_hw),
+        "cube_shape_hw": list(cube_shape_hw),
+        "delta_hw": list(delta_hw),
+        "max_delta_px": max_delta_px,
+        "aligned_image_path": str(image_path),
+    }
+
+    if image_shape_hw == cube_shape_hw:
+        return image_bgr, image_path, base_info, []
+
+    if not bool(policy["enabled"]) or any(delta > max_delta_px for delta in delta_hw):
+        raise PredictionError(
+            "CUBE_IMAGE_SHAPE_MISMATCH",
+            "RGB image and hyperspectral cube must be the same view; automatic RGB resize is allowed only when height and width differ by no more than 5 pixels.",
+            {
+                "image_shape_hw": image_shape_hw,
+                "cube_shape_hw": cube_shape_hw,
+                "delta_hw": delta_hw,
+                "max_allowed_delta_px": max_delta_px,
+                "alignment_enabled": bool(policy["enabled"]),
+            },
+        )
+
+    if policy["method"] != RGB_CUBE_ALIGNMENT_METHOD:
+        raise PredictionError(
+            "CUBE_IMAGE_SHAPE_MISMATCH",
+            "Unsupported RGB/cube shape alignment method in roi_config.json.",
+            {
+                "method": policy["method"],
+                "supported_methods": [RGB_CUBE_ALIGNMENT_METHOD],
+            },
+        )
+
+    interpolation = (
+        cv2.INTER_AREA
+        if cube_shape_hw[0] < image_shape_hw[0] or cube_shape_hw[1] < image_shape_hw[1]
+        else cv2.INTER_LINEAR
+    )
+    aligned_bgr = cv2.resize(
+        image_bgr,
+        (cube_shape_hw[1], cube_shape_hw[0]),
+        interpolation=interpolation,
+    )
+    aligned_path = _write_aligned_rgb_image(
+        image_bgr=aligned_bgr, image_stem=image_stem, debug_dir=debug_dir
+    )
+    base_info.update(
+        {
+            "resized": True,
+            "aligned_image_path": str(aligned_path),
+            "interpolation": "area" if interpolation == cv2.INTER_AREA else "linear",
+        }
+    )
+    warning = (
+        "RGB image was resized to ENVI cube shape "
+        f"from {image_shape_hw} to {cube_shape_hw}; per-dimension delta {delta_hw} <= {max_delta_px}px."
+    )
+    return aligned_bgr, aligned_path, base_info, [warning]
 
 
 class HuajiaoOilPredictor:
@@ -116,27 +253,39 @@ class HuajiaoOilPredictor:
             )
         image_bgr = load_rgb_image_bgr(image_path)
         cube, header = load_envi_cube(hdr_path, memmap=True)
-        validate_same_view_shape(image_bgr.shape[:2], cube.shape[:2])
+        image_stem = sample_id or image_path.stem
+        image_bgr, roi_image_path, shape_alignment_info, shape_warnings = (
+            _align_rgb_image_to_cube_shape(
+                image_bgr=image_bgr,
+                image_path=image_path,
+                cube_shape_hw=tuple(int(v) for v in cube.shape[:2]),
+                image_stem=image_stem,
+                roi_config=self.artifact.roi_config,
+                debug_dir=debug_dir,
+            )
+        )
 
         if self.roi_backend == DINOV3_ROI_BACKEND:
             mask, mask_path, overlay_path, roi_info, mask_source = (
                 self._segment_dinov3_roi(
-                    image_path=image_path,
+                    image_path=roi_image_path,
                     image_bgr=image_bgr,
-                    image_stem=sample_id or image_path.stem,
+                    image_stem=image_stem,
                     debug_dir=debug_dir,
                 )
             )
         else:
             roi_result, mask_path, overlay_path = segment_image_roi(
                 image_bgr=image_bgr,
-                image_stem=sample_id or image_path.stem,
+                image_stem=image_stem,
                 roi_config=self.artifact.roi_config,
                 debug_dir=debug_dir,
             )
             mask = roi_result.pepper_mask
             roi_info = roi_result.info
             mask_source = "traditional_roi_segmentation"
+        roi_info = dict(roi_info or {})
+        roi_info["shape_alignment"] = shape_alignment_info
         row, roi = extract_roi_spectrum_features(
             cube=np.asarray(cube),
             mask=mask,
@@ -150,6 +299,7 @@ class HuajiaoOilPredictor:
         warnings = enforce_roi_quality(
             roi.valid_pixel_count, roi.coverage_ratio, self.artifact.roi_config
         )
+        warnings.extend(shape_warnings)
         warnings.extend(self._schema_warnings(header_wavelengths=header.wavelengths))
         X = feature_row_to_frame(row, self.artifact.feature_columns)
         pred = np.asarray(self.artifact.model.predict(X), dtype=float).reshape(-1)
